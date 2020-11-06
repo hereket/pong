@@ -7,7 +7,7 @@ real32
 CalculateAspectMultiplier(game_render_buffer *Buffer)
 {
     real32 AspectMultiplier = Buffer->Height;
-    real32 AspectRatio = 16 / 9; // 1.77
+    real32 AspectRatio = 16.0f / 9.0f; // 1.77
     if(((real32)Buffer->Width / (real32)Buffer->Height) < AspectRatio)
     {
         AspectMultiplier = (real32)Buffer->Width / AspectRatio;
