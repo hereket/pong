@@ -47,11 +47,13 @@ RoundBottom(real32 Value)
 
 void SimulateGame(game_render_buffer *Buffer, game_input *Input, real32 dt)
 {
+    real32 Speed = 100 * dt;
+
     if(!Initialized)  {
         Initialized = true;
         Ball.P = V2(10, -40);
         Ball.dP = V2(0.3, 0.4);
-        Ball.Size = V2(2, 2);
+        Ball.Size = V2(1, 1);
         Ball.Color = 0x00000000;
 
         int ArenaWidth = 160;
@@ -60,6 +62,7 @@ void SimulateGame(game_render_buffer *Buffer, game_input *Input, real32 dt)
         Arena.Size = V2(ArenaWidth, ArenaHeight);
 
         Paddle.Size = V2(20, 2);
+        Paddle.P.Y = 40;
         Paddle.Color = 0x0000ff00;
 
         s32 BlockIndex = 0;
@@ -67,19 +70,24 @@ void SimulateGame(game_render_buffer *Buffer, game_input *Input, real32 dt)
         int BlocksFullWidth = ArenaWidth - 10;
         int BlocksFullHeight = ArenaHeight - 10;
 
-        real32 BlockOffsetX = 0.5;
-        real32 BlockOffsetY = 0.5;
+        real32 BlockOffsetX = 0.3;
+        real32 BlockOffsetY = 0.3;
         real32 BlockSizeX = (BlocksFullWidth / 10) - BlockOffsetX;
         real32 StartX = -BlocksFullWidth/2 + ((BlockSizeX+BlockOffsetX)/2);
         real32 StartY = -ArenaHeight/2 + 10;
 
         for(s32 Y = 0; Y < 10; Y++) {
+            int YColorStep = 255 / 10;
+            int XColorStep = 255 / 10;
             for(s32 X = 0; X < 10; X++) {
                 block *Block = BlockList + BlockIndex++;
                 if(BlockIndex >= BLOCK_COUNT) { BlockIndex = 0; }
                 Block->Life = 1;
-                Block->Color = 0xffffffff;
-                int XCount = 10;
+                /* Block->Color = 0xffffffff; */
+                Block->Color = 
+                    /* (0xff << 16) |  */
+                    (Y*YColorStep << 8) | 
+                    (X*XColorStep);
                 Block->Size.X = BlockSizeX;
                 Block->Size.Y = 3;
                 Block->P.X = StartX + X * (Block->Size.X + BlockOffsetX);
@@ -88,13 +96,6 @@ void SimulateGame(game_render_buffer *Buffer, game_input *Input, real32 dt)
         }
     }
 
-#define IS_PRESSED(Input, ButtonId) \
-    Input->Buttons[ButtonId].IsDown
-
-#define IS_CHANGED(Input, ButtonId) \
-    (Input->Buttons[ButtonId].IsDown && Input->Buttons[ButtonId].Changed)
-
-    real32 Speed = 100 * dt;
 
     if(IS_PRESSED(Input, BUTTON_DOWN))  { Paddle.P.Y += Speed; }
     if(IS_PRESSED(Input, BUTTON_UP))    { Paddle.P.Y -= Speed; }
@@ -125,12 +126,6 @@ void SimulateGame(game_render_buffer *Buffer, game_input *Input, real32 dt)
         Ball.dP.X *= -1;
     }
 
-    if(IsColliding(Ball.P, Ball.Size, Paddle.P, Paddle.Size)) {
-    /* if(IsColliding(Paddle.P, Paddle.Size, Ball.P, Ball.Size)) { */
-        Ball.Color = 0x00ffffff;
-    } else {
-        Ball.Color = 0x00000000;
-    }
 
     for(s32 Index = 0; Index < BLOCK_COUNT; Index++)
     {
@@ -140,16 +135,40 @@ void SimulateGame(game_render_buffer *Buffer, game_input *Input, real32 dt)
             enum collision_type collision = CollisionSide(Block->P, Block->Size, V2(ExpectedX, ExpectedY), Ball.Size);
             if(COLLISION_NONE != CollisionSide(Block->P, Block->Size, V2(ExpectedX, ExpectedY), Ball.Size)) {
                 Block->Color = 0x00000000;
-                if(collision == COLLISION_LEFT) { printf("%d Left\n", test++); }
-                if(collision == COLLISION_RIGHT) { printf("%d Right\n", test++); }
-                if(collision == COLLISION_TOP) { printf("%d Top\n", test++); }
-                if(collision == COLLISION_BOTTOM) { printf("%d Bottom\n", test++); }
+                Block->Life -= 1;
+                if(collision == COLLISION_LEFT) { 
+                    Ball.dP.X *= -1;
+                }
+                if(collision == COLLISION_RIGHT) {
+                    Ball.dP.X *= -1;
+                }
+                if(collision == COLLISION_TOP) {
+                    Ball.dP.Y *= -1;
+                }
+                if(collision == COLLISION_BOTTOM) {
+                    Ball.dP.Y *= -1;
+                }
+
+                break;
             }
         }
     }
 
-    Ball.P.X = ExpectedX;
-    Ball.P.Y = ExpectedY;
+    v2 BallExpectedP = {ExpectedX, ExpectedY};
+    if(IsColliding(BallExpectedP, Ball.Size, Paddle.P, Paddle.Size)) {
+        /* Ball.dP.X *= -1; */
+        Ball.dP.Y *= -1;
+
+        /* Ball.P.X = Paddle.P.X - (Paddle.Size.X/2); */
+        /* Ball.P.Y = Paddle.P.Y + Paddle.Size.Y/2); */
+
+        /* Ball.Color = 0x00ffffff; */
+    } else {
+        /* Ball.Color = 0x00000000; */
+        Ball.P.X = ExpectedX;
+        Ball.P.Y = ExpectedY;
+    }
+
 
 
     // 
@@ -174,7 +193,6 @@ void SimulateGame(game_render_buffer *Buffer, game_input *Input, real32 dt)
 
     v2 P = PixelToWorldCoord(Buffer, Input->MouseP);
     Paddle.P.X = P.X;
-    Paddle.P.Y = 45;
 
     DrawRect(Buffer, Paddle.P, Paddle.Size, Paddle.Color);
     DrawRect(Buffer, V2(Ball.P.X, Ball.P.Y), Ball.Size, Ball.Color);

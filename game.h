@@ -31,4 +31,13 @@ struct {
 } typedef game_render_buffer;
 
 
+
+#define IS_PRESSED(Input, ButtonId) \
+    Input->Buttons[ButtonId].IsDown
+
+#define IS_CHANGED(Input, ButtonId) \
+    (Input->Buttons[ButtonId].IsDown && Input->Buttons[ButtonId].Changed)
+
+
+
 #endif
