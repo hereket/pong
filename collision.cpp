@@ -26,18 +26,18 @@ IsColliding(v2 AP, v2 ASize, v2 BP, v2 BSize)
     return Result;
 }
 
-enum collision_type{
+enum {
     COLLISION_NONE,
     COLLISION_LEFT,
     COLLISION_RIGHT,
     COLLISION_TOP,
     COLLISION_BOTTOM,
-};
+}typedef collision_type;
 
-s32
+collision_type
 CollisionSide(v2 AP, v2 ASize, v2 BP, v2 BSize)
 {
-    s32 Result = 0;
+    collision_type Result = COLLISION_NONE;
     
     real32 dX = fabs(AP.X - BP.X);
     real32 dY = fabs(AP.Y - BP.Y);

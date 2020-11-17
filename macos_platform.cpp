@@ -1,9 +1,9 @@
 #include <SDL2/SDL.h>
 #include <stdint.h>
 
-#include "utils.c"
-#include "math.c"
-#include "game.c"
+#include "utils.cpp"
+#include "math.cpp"
+#include "game.cpp"
 
 
 struct {

@@ -20,3 +20,4 @@ typedef double real64;
 #define global_variable static
 #define local_persist static
 
+#define ARRAY_COUNT(A) sizeof(A) / sizeof(A[0])
