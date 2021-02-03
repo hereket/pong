@@ -112,6 +112,9 @@ global_variable s32 NextPowerBlock;
 global_variable v2 PowerBlockSize;
 
 
+global_variable v2 PaddleDesiredP;
+
+
 void
 SimulateGameMode(game_render_buffer *Buffer)
 {
@@ -196,7 +199,7 @@ StartGame(level GameMode)
 
     Balls[0].P = V2(10, -40);
     Balls[0].dP = V2(0.0, 1.4);
-    Balls[0].Size = V2(1, 1);
+    Balls[0].Size = V2(1.5, 1.5);
     Balls[0].Color = 0x00FFFFFF;
     Balls[0].Flags |= BALL_ACTIVE;
 
@@ -328,11 +331,12 @@ SimulateGame(game_render_buffer *Buffer, game_input *Input, real32 dt)
         StartGame(GlobalCurrentLevel);
     }
 
-    v2 PaddleDesiredP = PixelToWorldCoord(Buffer, Input->MouseP);
+    real32 PaddleSpeedMultiplier = 0.1;
+
+    // PaddleDesiredP = PixelToWorldCoord(Buffer, Input->MouseP);
+    if(InvertedControlsTime > 0) { PaddleDesiredP = Paddle.P - (Input->MouseDp * PaddleSpeedMultiplier); }
+    else                         { PaddleDesiredP = Paddle.P + (Input->MouseDp * PaddleSpeedMultiplier); }
     PaddleDesiredP.Y = Paddle.P.Y;
-    if(InvertedControlsTime > 0) {
-        PaddleDesiredP.X *= -1;
-    }
 
     Paddle.dP.X = PaddleDesiredP.X - Paddle.P.X;
 

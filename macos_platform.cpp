@@ -16,6 +16,8 @@ struct {
 
 global_variable macos_render_buffer GlobalRenderBuffer;
 
+global_variable int GlobalWindowIsFocused;
+
 void
 MACResizeTexture(SDL_Renderer *Renderer,  macos_render_buffer *Buffer, int Width, int Height)
 {
@@ -49,6 +51,8 @@ int main()
     /* s32 WindowHeight = 480; */
     s32 WindowWidth = 960;
     s32 WindowHeight = WindowWidth / 1.77;
+    s32 WindowCenterX = WindowWidth / 2;
+    s32 WindowCenterY = WindowHeight /2 ;
 
     SDL_Window *Window = SDL_CreateWindow("SDL2 Window", 
             SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
@@ -71,7 +75,7 @@ int main()
     u64 LastTime = SDL_GetPerformanceCounter();
     real32 dt = 0;
 
-    // SDL_ShowCursor(SDL_DISABLE);
+    SDL_ShowCursor(SDL_DISABLE);
 
     bool32 KeepWindowOpen = 1;
     while(KeepWindowOpen)
@@ -97,6 +101,11 @@ int main()
                         s32 Width = event.window.data1;
                         s32 Height = event.window.data2;
                         MACResizeTexture(Renderer, &GlobalRenderBuffer, Width, Height);
+                    } else if((event.window.event == SDL_WINDOWEVENT_ENTER) ||
+                              (event.window.event == SDL_WINDOWEVENT_EXPOSED)) {
+                        GlobalWindowIsFocused = true;
+                    } else if(event.window.event == SDL_WINDOWEVENT_LEAVE) {
+                        GlobalWindowIsFocused = false;
                     }
                 } break;
 
@@ -104,7 +113,9 @@ int main()
                 {
                     Input.MouseP.X = event.motion.x;
                     Input.MouseP.Y = event.motion.y;
-                    int x = event.motion.x;
+
+                    Input.MouseDp.X = Input.MouseP.X - (GlobalRenderBuffer.Width/2);
+                    Input.MouseDp.Y = Input.MouseP.Y - (GlobalRenderBuffer.Height/2);
                 } break;
 
                 case SDL_KEYDOWN:
@@ -145,6 +156,10 @@ int main()
         SDL_RenderPresent(Renderer);
 
         u64 CurrentTime = SDL_GetPerformanceCounter();
+
+        if(GlobalWindowIsFocused) {
+            SDL_WarpMouseInWindow(Window, WindowCenterX, WindowCenterY);
+        }
 
         /* real64 dt = (real64)(CurrentTime - LastTime)/Frequency * 1000; */
         dt = (real64)(CurrentTime - LastTime)/Frequency;

@@ -20,6 +20,7 @@ enum {
 
 struct {
     v2 MouseP;
+    v2 MouseDp;
     button Buttons[BUTTON_COUNT];
 } typedef game_input;
 
