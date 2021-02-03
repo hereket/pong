@@ -21,3 +21,17 @@ typedef double real64;
 #define local_persist static
 
 #define ARRAY_COUNT(A) sizeof(A) / sizeof(A[0])
+
+
+inline void 
+ZeroSize(void *Memory, u64 Size) {
+    u8 *Byte = (u8*)Memory; 
+    for(u64 Index = 0; Index < Size; Index++) {
+        *Byte++ = 0;
+    }
+}
+
+#define ZERO_SIZE
+#define ZERO_STRUCT(A) ZeroSize(&(A), sizeof(A))
+
+

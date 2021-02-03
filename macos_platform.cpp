@@ -71,7 +71,7 @@ int main()
     u64 LastTime = SDL_GetPerformanceCounter();
     real32 dt = 0;
 
-    /* SDL_ShowCursor(SDL_DISABLE); */
+    // SDL_ShowCursor(SDL_DISABLE);
 
     bool32 KeepWindowOpen = 1;
     while(KeepWindowOpen)

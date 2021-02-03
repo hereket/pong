@@ -37,14 +37,14 @@ PixelToWorldCoord(game_render_buffer *Buffer, v2 P)
 void
 DrawRectInPixels(game_render_buffer *Buffer, int DesiredStartX, int DesiredStartY, int Width, int Height, u32 Color)
 {
-    int StartX = Clamp(0, DesiredStartX, Buffer->Width - 1);
-    int StartY = Clamp(0, DesiredStartY, Buffer->Height - 1);
-    int EndX   = Clamp(0, DesiredStartX + Width, Buffer->Width - 1);
-    int EndY   = Clamp(0, DesiredStartY + Height, Buffer->Height - 1);
+    int StartX = Clamp(0, DesiredStartX, Buffer->Width);
+    int StartY = Clamp(0, DesiredStartY, Buffer->Height);
+    int EndX   = Clamp(0, DesiredStartX + Width, Buffer->Width);
+    int EndY   = Clamp(0, DesiredStartY + Height, Buffer->Height);
 
     for(int Y = StartY; Y <= EndY; Y++) {
         u8 *Row = Buffer->Pixels + Y*Buffer->Pitch;
-        for(int X = StartX; X <= EndX; X++) {
+        for(int X = StartX; X < EndX; X++) {
             u32 *Pixel = (u32 *)Row + X;
             *Pixel = Color;
         }
