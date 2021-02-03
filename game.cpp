@@ -30,13 +30,14 @@ struct {
 enum {
     LEVEL_01_NORMAL,
     LEVEL_02_WALL,
-    LEVEL_03_STADIUM,
-    LEVEL_04_CHESS,
 
     LEVEL_05_PONG,
     LEVEL_06_INVADERS,
 
-    LEVEL_COUNT,
+    LEVEL__COUNT,
+
+    LEVEL_03_STADIUM,
+    LEVEL_04_CHESS,
 } typedef level;
 
 enum {
@@ -403,9 +404,13 @@ SimulateGame(game_render_buffer *Buffer, game_input *Input, real32 dt)
         }
 
         if(IsColliding(Ball->DesiredP, Ball->Size, PaddleDesiredP, Paddle.Size)) {
-            Ball->dP.Y *= -1;
-            Ball->dP.X = Clamp(-3, Ball->dP.X + Paddle.dP.X, 3);
             FirstBallMovement = false;
+
+            Ball->dP.Y *= -1;
+
+            float MaxMoveSpeedX = 3;
+            float MinusOneToOneRange = -1 * ((Paddle.P.X - Ball->DesiredP.X) / ((float)Paddle.Size.X / 2));
+            Ball->dP.X = Clamp(-MaxMoveSpeedX, MaxMoveSpeedX * MinusOneToOneRange, MaxMoveSpeedX);
 
             if(GlobalNumberOfTripleShots > 0) {
                 GlobalNumberOfTripleShots--;
