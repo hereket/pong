@@ -31,7 +31,7 @@ ZeroSize(void *Memory, u64 Size) {
     }
 }
 
-#define ZERO_SIZE
 #define ZERO_STRUCT(A) ZeroSize(&(A), sizeof(A))
+#define ZERO_ARRAY(A) ZeroSize(&(A), sizeof(A))
 
 

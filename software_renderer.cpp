@@ -66,10 +66,10 @@ DrawRect(game_render_buffer *Buffer, v2 Position, v2 Size, u32 Color)
     Position.X += Buffer->Width * 0.5;
     Position.Y += Buffer->Height * 0.5;
 
-    s32 X0 = Position.X - (Size.X * 0.5); 
-    s32 Y0 = Position.Y - (Size.Y * 0.5); 
-    s32 SizeX = Size.X;
-    s32 SizeY = Size.Y;
+    s32 X0    = round(Position.X - (Size.X * 0.5));
+    s32 Y0    = round(Position.Y - (Size.Y * 0.5));
+    s32 SizeX = round(Size.X);
+    s32 SizeY = round(Size.Y);
 
     DrawRectInPixels(Buffer, X0, Y0, SizeX, SizeY, Color);
 }

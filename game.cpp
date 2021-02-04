@@ -72,13 +72,13 @@ struct {
 } typedef block;
 
 
-struct {
-    power Powerups[16];
-    s32 Next;
-
-    // real32 InvincibilityTime;
-    s32 NumberOfTripleShots;
-}typedef powerups_state;
+// struct {
+//     power Powerups[16];
+//     s32 Next;
+//
+//     // real32 InvincibilityTime;
+//     s32 NumberOfTripleShots;
+// }typedef powerups_state;
 
 // struct {
 //     union {
@@ -111,8 +111,8 @@ global_variable power PowerBlocks[16];
 global_variable s32 NextPowerBlock;
 global_variable v2 PowerBlockSize;
 
-
 global_variable v2 PaddleDesiredP;
+global_variable s32 PlayerLifeCount;
 
 
 void
@@ -172,7 +172,7 @@ BlockIsDestroyed(block *Block)
 {
     TestForWinCondition();
 
-    SpawnPowerup(Block->P);
+    // SpawnPowerup(Block->P);
 
     switch(GlobalCurrentLevel) {
         case LEVEL_01_NORMAL: 
@@ -186,30 +186,37 @@ BlockIsDestroyed(block *Block)
     }
 }
 
+void
+InitBall(ball *Ball) 
+{
+    Ball->P = V2(10, -50);
+    Ball->dP = V2(0.0, 1.4);
+    Ball->Size = V2(1.5, 1.5);
+    Ball->Color = 0x00FFFFFF;
+    Ball->Flags |= BALL_ACTIVE;
+}
+
 
 internal void 
 StartGame(level GameMode)
 {
     Speed = 30.0f;
+    PlayerLifeCount = 3;
 
     GlobalCurrentLevel = GameMode;
     AdvanceGameMode = false;
 
     FirstBallMovement = 1;
 
-    Balls[0].P = V2(10, -40);
-    Balls[0].dP = V2(0.0, 1.4);
-    Balls[0].Size = V2(1.5, 1.5);
-    Balls[0].Color = 0x00FFFFFF;
-    Balls[0].Flags |= BALL_ACTIVE;
+    InitBall(&Balls[0]);
 
     int ArenaWidth = 160;
-    int ArenaHeight = 90;
-    Arena.P = V2(0, 0);
+    int ArenaHeight = 100;
+    Arena.P = V2(0, 5);
     Arena.Size = V2(ArenaWidth, ArenaHeight);
 
     Paddle.Size = V2(20, 2);
-    Paddle.P.Y = 40;
+    Paddle.P.Y = 45;
     Paddle.Color = 0x0000ff00;
 
     s32 BlockIndex = 0;
@@ -260,6 +267,44 @@ StartGame(level GameMode)
 
         case LEVEL_02_WALL:
         {
+            s32 BlockXCount = 19;
+            s32 BlockYCount = 12;
+
+            s32 YColorStep = 255 / BlockYCount;
+            s32 XColorStep = 1;
+
+            real32 BlockSizeX = (BlocksFullWidth / BlockXCount);
+
+            real32 StartX = -BlocksFullWidth/2 + (BlockSizeX/2);
+            real32 StartY = Arena.P.Y - Arena.Size.Y/2 + 10;
+
+            block *PrevHorizontalBlock = 0;
+            for(s32 Y = 0; Y < BlockYCount; Y++) {
+                for(s32 X = 0; X < BlockXCount; X++) {
+                    BlockTotalCount++; 
+                    block *Block = BlockList + BlockIndex++;
+                    if(BlockIndex >= BLOCK_COUNT) { BlockIndex = 0; }
+                    Block->Life = 1;
+                    Block->Color = (Y*YColorStep << 8) | 
+                                   (X*XColorStep);
+                    Block->Size.X = BlockSizeX;
+                    Block->Size.Y = 3;
+                    Block->P.Y = StartY + Y * (Block->Size.Y);
+
+                    if(PrevHorizontalBlock == NULL) {
+                        // Block->P.X = StartX + X * (Block->Size.X);
+                        Block->P.X = StartX;
+                    } else {
+                        Block->P.X = PrevHorizontalBlock->P.X + PrevHorizontalBlock->Size.X;
+                    }
+                    PrevHorizontalBlock = Block;
+
+                    printf("%f + %f = %f\n", Block->P.X, Block->Size.X, Block->P.X + Block->Size.X);
+                }
+                PrevHorizontalBlock = NULL;
+                printf("\n\n");
+            }
+
         } break;
 
         case LEVEL_03_STADIUM:
@@ -319,6 +364,15 @@ ProcessBallOnDpYDown(ball *Ball)
     }
 }
 
+void
+LoseLife()
+{
+    PlayerLifeCount--;
+    if(PlayerLifeCount <= 0) { StartGame(GlobalCurrentLevel); }
+
+    FirstBallMovement = 1;
+    InitBall(&Balls[0]);
+}
 
 void 
 SimulateGame(game_render_buffer *Buffer, game_input *Input, real32 dt)
@@ -345,17 +399,16 @@ SimulateGame(game_render_buffer *Buffer, game_input *Input, real32 dt)
         if(!(Ball->Flags & BALL_ACTIVE)) { continue; }
 
         Ball->DesiredP = Ball->P + (Ball->dP * dt * Speed);
-        // v2 BallDesiredP = Ball.P + (Ball.dP * dt); 
 
-        bool32 BallXOverRight  = Ball->DesiredP.X + (Ball->Size.X/2) >  (Arena.Size.X*0.5);
-        bool32 BallXOverLeft   = Ball->DesiredP.X - (Ball->Size.X/2) < -(Arena.Size.X*0.5);
-        bool32 BallYOverBottom = Ball->DesiredP.Y + (Ball->Size.Y/2) >  (Arena.Size.Y*0.5);
-        bool32 YOverTop        = Ball->DesiredP.Y - (Ball->Size.Y/2) < -(Arena.Size.Y*0.5);
+        bool32 BallXOverRight  = Ball->DesiredP.X + (Ball->Size.X/2) >  Arena.P.X + (Arena.Size.X*0.5);
+        bool32 BallXOverLeft   = Ball->DesiredP.X - (Ball->Size.X/2) <  Arena.P.X - (Arena.Size.X*0.5);
+        bool32 BallYOverBottom = Ball->DesiredP.Y + (Ball->Size.Y/2) >  Arena.P.Y + (Arena.Size.Y*0.5);
+        bool32 YOverTop        = Ball->DesiredP.Y - (Ball->Size.Y/2) <  Arena.P.Y - (Arena.Size.Y*0.5);
 
         if((YOverTop)) {
             ProcessBallOnDpYDown(Ball);
-            if(YOverTop)        { Ball->DesiredP.Y = -Arena.Size.Y*0.5 + Ball->Size.Y*0.5; }
-            if(BallYOverBottom) { Ball->DesiredP.Y =  Arena.Size.Y*0.5 - Ball->Size.Y*0.5; }
+            if(YOverTop)        { Ball->DesiredP.Y = Arena.P.Y - Arena.Size.Y*0.5 + Ball->Size.Y*0.5; }
+            if(BallYOverBottom) { Ball->DesiredP.Y = Arena.Size.Y*0.5 - Ball->Size.Y*0.5; }
             Ball->dP.Y *= -1;
         } else if((BallXOverRight) || (BallXOverLeft)) {
             ProcessBallOnDpYDown(Ball);
@@ -506,7 +559,7 @@ SimulateGame(game_render_buffer *Buffer, game_input *Input, real32 dt)
     }
 
     if(Balls[0].P.Y > (Arena.Size.Y / 2)) {
-        StartGame(GlobalCurrentLevel);
+        LoseLife();
     }
 
     if(AdvanceGameMode) {
@@ -518,6 +571,16 @@ SimulateGame(game_render_buffer *Buffer, game_input *Input, real32 dt)
     if(CometTime > 0) { CometTime -= dt; }
     if(StrongBlocksTime > 0) { StrongBlocksTime -= dt; }
     if(InvertedControlsTime > 0) { InvertedControlsTime -= dt; }
+
+    for(int i = 0; i < PlayerLifeCount; i++) {
+        // DrawRect();
+        real32 Size = 2;
+        real32 Offset = 0.7;
+        real32 StartX = Arena.P.X - (Arena.Size.X/2) - 3;
+        real32 X = StartX + i*Size + i*Offset;
+        real32 Y = Arena.P.Y - (Arena.Size.Y/2) - 2.5;
+        DrawRect(Buffer, V2(X, Y), V2(Size, Size), 0x0000FF00);
+    }
 
 
 #if DEVELOPMENT
