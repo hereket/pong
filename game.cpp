@@ -62,33 +62,40 @@ struct {
     v2 P;
 } typedef power;
 
-struct {
+typedef struct {
     v2 P;
     v2 Size;
+    v2 DistanceFromCenter;
 
     s32 Life;
     u32 Color;
 
     power Power;
-} typedef block;
+} block;
 
+typedef struct {
+    s32 EnemyLife;
+    v2 EnemyP;
+    v2 EnemyDp;
+    v2 EnemySize;
+} level_state_pong;
 
-// struct {
-//     power Powerups[16];
-//     s32 Next;
-//
-//     // real32 InvincibilityTime;
-//     s32 NumberOfTripleShots;
-// }typedef powerups_state;
+typedef struct {
+    v2 CenterP;
+    v2 dP;
+    v2 InvadersFullSize;
+} level_state_invaders;
 
-// struct {
-//     union {
-//         powerups_state Pow;
-//     };
-// } typedef game_mode_state;
+typedef struct {
+    union {
+        level_state_pong Pong;
+        level_state_invaders Invaders;
+    };
+} game_state;
 
+global_variable game_state GlobalGameState;
 
-#define BLOCK_COUNT 512
+#define BLOCK_COUNT 1024 * 2
 global_variable block BlockList[BLOCK_COUNT];
 
 global_variable bool32 Initialized;
@@ -117,6 +124,250 @@ global_variable s32 PlayerLifeCount;
 global_variable real32 GlobalBallBaseSpeed = 40;
 global_variable s32 GlobalScore;
 
+global_variable s32 GlobalBlockIndex;
+
+global_variable game_render_buffer *GlobalBuffer_DEBUG;
+
+
+
+void
+CreateInvader(v2 P, real32 SizeX, real32 SizeY, v2 CenterP) {
+#define INVADER_ROW_CHAR_COUNT 11
+#define INVADER_COLUMN_CHAR_COUNT 8 
+    char InvaderTemplate[][INVADER_ROW_CHAR_COUNT + 1] = {
+        " 0       0 ",
+        "  0     0  ",
+        "  0000000  ",
+        " 00 000 00 ",
+        "00000000000",
+        "0 0000000 0",
+        "0 0     0 0",
+        "   00 00   ",
+    };
+
+    // real32 InvaderWidth = Size;
+    // real32 InvaderHeight = Size * INVADER_COLUMN_CHAR_COUNT / INVADER_ROW_CHAR_COUNT;
+    real32 InvaderWidth = SizeX;
+    real32 InvaderHeight = SizeY;
+    real32 BlockSize = InvaderWidth / INVADER_ROW_CHAR_COUNT;
+
+
+    for(int YIndex = 0; YIndex < INVADER_COLUMN_CHAR_COUNT; YIndex++){
+        for(int XIndex = 0; XIndex < INVADER_ROW_CHAR_COUNT; XIndex++) {
+            char Value = InvaderTemplate[YIndex][XIndex];
+            if(Value == '0') {
+                BlockTotalCount++;
+                block *Block = BlockList + GlobalBlockIndex++;
+                if(GlobalBlockIndex >= BLOCK_COUNT) { GlobalBlockIndex = 0; }
+                Block->Life = 1;
+                Block->Size.X = BlockSize;
+                Block->Size.Y = BlockSize;
+                Block->P.X = P.X - (InvaderWidth/2) + (XIndex*BlockSize);
+                Block->P.Y = P.Y - (InvaderHeight/2) + (YIndex*BlockSize);
+                Block->DistanceFromCenter.X = Block->P.X - CenterP.X;
+                Block->DistanceFromCenter.Y = Block->P.Y - CenterP.Y;
+            }
+        }
+    }
+}
+
+void
+InitBall(ball *Ball) 
+{
+    Ball->BaseSpeed = GlobalBallBaseSpeed;
+    Ball->P = V2(10, -50);
+    Ball->dP = V2(0.0, -Ball->BaseSpeed);
+    Ball->Size = V2(1.5, 1.5);
+    Ball->Color = 0x00FFFFFF;
+    Ball->Flags |= BALL_ACTIVE;
+}
+
+internal void 
+StartGame(level GameMode)
+{
+    // Speed = 30.0f;
+    PlayerLifeCount = 3;
+
+    GlobalCurrentLevel = GameMode;
+    AdvanceGameMode = false;
+
+    FirstBallMovement = 1;
+
+    InitBall(&Balls[0]);
+
+    int ArenaWidth = 160;
+    int ArenaHeight = 100;
+    Arena.P = V2(0, 5);
+    Arena.Size = V2(ArenaWidth, ArenaHeight);
+
+    Paddle.Size = V2(20, 2);
+    Paddle.P.Y = 45;
+    Paddle.Color = 0x0000ff00;
+
+    s32 GlobalBlockIndex = 0;
+
+    float BlocksFullWidth = ArenaWidth - 10;
+    float BlocksFullHeight = ArenaHeight - 10;
+
+    BlockTotalCount = 0;
+
+    for(s32 Index = 0; Index < BLOCK_COUNT; Index++) {
+        block *Block = BlockList + Index;
+        Block->Life = 0;
+    }
+
+    switch(GameMode)
+    {
+        case LEVEL_01_NORMAL:
+        {
+            s32 BlockXCount = 19;
+            s32 BlockYCount = 9;
+
+            s32 YColorStep = 255 / BlockYCount;
+            s32 XColorStep = 255 / BlockXCount;
+
+            real32 BlockOffsetX = 0.4;
+            real32 BlockOffsetY = 0.4;
+
+            real32 BlockSizeX = (BlocksFullWidth / BlockXCount) - BlockOffsetX;
+
+            real32 StartX = -BlocksFullWidth/2 + ((BlockSizeX+BlockOffsetX)/2);
+            real32 StartY = -ArenaHeight/2 + 10;
+
+            for(s32 Y = 0; Y < BlockYCount; Y++) {
+                for(s32 X = 0; X < BlockXCount; X++) {
+                    BlockTotalCount++; 
+                    block *Block = BlockList + GlobalBlockIndex++;
+                    if(GlobalBlockIndex >= BLOCK_COUNT) { GlobalBlockIndex = 0; }
+                    Block->Life = 1;
+                    Block->Color = (Y*YColorStep << 8) | 
+                                   (X*XColorStep);
+                    Block->Size.X = BlockSizeX;
+                    Block->Size.Y = 3;
+                    Block->P.X = StartX + X * (Block->Size.X + BlockOffsetX);
+                    Block->P.Y = StartY + Y * (Block->Size.Y + BlockOffsetY);
+                }
+            }
+        } break;
+
+        case LEVEL_02_WALL:
+        {
+            s32 BlockXCount = 19;
+            s32 BlockYCount = 12;
+
+            s32 YColorStep = 255 / BlockYCount;
+            s32 XColorStep = 1;
+
+            real32 BlockSizeX = (BlocksFullWidth / BlockXCount);
+
+            real32 StartX = -BlocksFullWidth/2 + (BlockSizeX/2);
+            real32 StartY = Arena.P.Y - Arena.Size.Y/2 + 10;
+
+            for(s32 Y = 0; Y < BlockYCount; Y++) {
+                for(s32 X = 0; X < BlockXCount; X++) {
+                    BlockTotalCount++; 
+                    block *Block = BlockList + GlobalBlockIndex++;
+                    if(GlobalBlockIndex >= BLOCK_COUNT) { GlobalBlockIndex = 0; }
+                    Block->Life = 1;
+                    Block->Color = (Y*YColorStep << 8) | 
+                                   (X*XColorStep);
+                    Block->Size.X = BlockSizeX;
+                    Block->Size.Y = 3;
+                    Block->P.Y = StartY + Y * (Block->Size.Y);
+                    Block->P.X = StartX + X * (Block->Size.X);
+                }
+            }
+        } break;
+
+        case LEVEL_03_STADIUM:
+        {
+        } break;
+
+        case LEVEL_04_CHESS:
+        {
+        } break;
+
+        case LEVEL_05_PONG:
+        {
+            s32 BlockXCount = 15;
+            s32 BlockYCount = 3;
+
+            s32 YColorStep = 255 / BlockYCount;
+            s32 XColorStep = 1;
+
+            float BlocksFullWidth = (ArenaWidth / 5);
+            real32 BlockSizeX = (BlocksFullWidth / BlockXCount);
+
+            real32 FromCenterStartOffsetX = -(BlocksFullWidth / 2);
+
+            real32 StartX = -BlocksFullWidth/2 + (BlockSizeX/2);
+            real32 StartY = Arena.P.Y - Arena.Size.Y/2 + 10;
+
+            for(s32 Y = 0; Y < BlockYCount; Y++) {
+                for(s32 X = 0; X < BlockXCount; X++) {
+                    BlockTotalCount++; 
+                    block *Block = BlockList + GlobalBlockIndex++;
+                    if(GlobalBlockIndex >= BLOCK_COUNT) { GlobalBlockIndex = 0; }
+                    Block->Life = 1;
+                    Block->Color = (Y*YColorStep << 8) | (X*XColorStep);
+                    Block->Size.X = BlockSizeX;
+                    Block->Size.Y = 3;
+                    Block->P.Y = StartY + Y * (Block->Size.Y);
+                    Block->P.X = StartX + X * (Block->Size.X);
+
+                    Block->DistanceFromCenter.X = FromCenterStartOffsetX + (X * BlockSizeX);
+                    // Block->DistanceFromCenter.Y = ;
+                }
+            }
+
+
+        } break;
+
+        case LEVEL_06_INVADERS:
+        {
+            level_state_invaders *LevelInvaders = &GlobalGameState.Invaders; 
+            LevelInvaders->dP = V2(0.05, 0);
+
+            GlobalBlockIndex = 0;
+
+            s32 PaddingX = 2;
+            s32 PaddingY = 2;
+
+            s32 InvaderCountX = 5;
+            s32 InvaderCountY = 3;
+
+            real32 InvadersTotalWidth = (ArenaWidth / 2);
+            real32 WidthToHeightMultiplier = ((float)INVADER_COLUMN_CHAR_COUNT / (float)INVADER_ROW_CHAR_COUNT);
+            real32 InvadersTotalHeight = InvadersTotalWidth * WidthToHeightMultiplier;
+
+            real32 InvaderSizeX = (InvadersTotalWidth / InvaderCountX) - PaddingX;
+            real32 InvaderSizeY = (InvaderSizeX * WidthToHeightMultiplier) - PaddingY;
+
+            LevelInvaders->InvadersFullSize = V2(InvadersTotalWidth, InvadersTotalHeight);
+
+            LevelInvaders->CenterP = V2(
+                    -(Arena.Size.X/2) + InvadersTotalWidth/2, 
+                    (Arena.Size.Y/2) - InvadersTotalHeight);
+
+            v2 CenterP = LevelInvaders->CenterP;
+
+            for(s32 YIndex = 0; YIndex < InvaderCountY; YIndex++) {
+                for(s32 XIndex = 0; XIndex < InvaderCountX; XIndex++) {
+                    real32 X = CenterP.X - (InvadersTotalWidth/2) + (XIndex * InvaderSizeX) + (XIndex * PaddingX) + (InvaderSizeX/2);
+                    real32 Y = CenterP.Y - (InvadersTotalHeight/2) + (YIndex * InvaderSizeY) + (YIndex * PaddingY);
+                    // v2 DistanceFromCenter = {
+                    //     CenterP.X - (InvadersTotalWidth/2*XIndex),
+                    //     CenterP.Y - (InvadersTotalHeight/2*YIndex),
+                    // };
+                    CreateInvader(V2(X, Y), InvaderSizeX, InvaderSizeY, CenterP);
+                }
+            }
+        } break;
+
+        default: {
+        };
+    }
+}
 
 void
 SimulateGameMode(game_render_buffer *Buffer)
@@ -142,6 +393,64 @@ SimulateGameMode(game_render_buffer *Buffer)
         default: { }
     }
 
+}
+
+void
+SimulateLevelStateChanges(game_render_buffer *Buffer, level CurrentLevel, v2 PaddleP) {
+   switch(CurrentLevel){
+       case LEVEL_05_PONG: 
+       {
+           level_state_pong *Pong = &GlobalGameState.Pong;
+
+           ball *Ball = Balls;
+
+           if(Pong->EnemyP.X < Ball->P.X) { Pong->EnemyDp.X = 0.2; }
+           else                           { Pong->EnemyDp.X = -0.2; }
+
+           Pong->EnemyP.X += Pong->EnemyDp.X; 
+
+           for(s32 Index = 0; Index < ARRAY_COUNT(BlockList); Index++) {
+               block *Block = BlockList + Index;
+               Block->P.X = Pong->EnemyP.X + Block->DistanceFromCenter.X;
+           }
+       } break;
+
+       case LEVEL_06_INVADERS: 
+       {
+           level_state_invaders *LevelInvaders = &GlobalGameState.Invaders; 
+           LevelInvaders->CenterP = LevelInvaders->CenterP + LevelInvaders->dP;
+
+           real32 InvaderLeftMargin  = LevelInvaders->CenterP.X - LevelInvaders->InvadersFullSize.X/2;
+           real32 InvaderRightMargin = LevelInvaders->CenterP.X + LevelInvaders->InvadersFullSize.X/2;
+
+           // printf("%.3f %.3f %.3f %.3f\n", (-Arena.Size.X/2), InvaderLeftMargin,InvaderRightMargin, (Arena.Size.X/2));
+           if(InvaderLeftMargin < (-Arena.Size.X/2) ) {
+               LevelInvaders->dP.X *= -1;
+               LevelInvaders->CenterP.Y += 5;
+           }else if(InvaderRightMargin > (Arena.Size.X/2)) {
+               LevelInvaders->dP.X *= -1;
+               LevelInvaders->CenterP.Y += 5;
+           }
+
+           for(s32 Index = 0; Index < ARRAY_COUNT(BlockList); Index++) {
+               block *Block = BlockList + Index;
+               Block->P.X = LevelInvaders->CenterP.X + Block->DistanceFromCenter.X;
+               Block->P.Y = LevelInvaders->CenterP.Y + Block->DistanceFromCenter.Y;
+
+               if(COLLISION_NONE != CollisionSide(Block->P, Block->Size, PaddleDesiredP, Paddle.Size)) {
+                   StartGame(GlobalCurrentLevel);
+                   printf("Collided\n");
+               }
+
+           }
+
+           DrawRect(Buffer, V2(InvaderLeftMargin, -25), V2(0.1, 3), 0x00ffffff);
+           DrawRect(Buffer, LevelInvaders->CenterP, V2(0.1, 3), 0x00ffffff);
+           DrawRect(Buffer, V2(InvaderRightMargin, -25), V2(0.1, 3), 0x00ffffff);
+       }
+       
+       default: {} break;
+   }
 }
 
 void
@@ -189,148 +498,8 @@ BlockIsDestroyed(block *Block)
     }
 }
 
-void
-InitBall(ball *Ball) 
-{
-    Ball->BaseSpeed = GlobalBallBaseSpeed;
-    Ball->P = V2(10, -50);
-    Ball->dP = V2(0.0, -Ball->BaseSpeed);
-    Ball->Size = V2(1.5, 1.5);
-    Ball->Color = 0x00FFFFFF;
-    Ball->Flags |= BALL_ACTIVE;
-}
 
 
-internal void 
-StartGame(level GameMode)
-{
-    // Speed = 30.0f;
-    PlayerLifeCount = 3;
-
-    GlobalCurrentLevel = GameMode;
-    AdvanceGameMode = false;
-
-    FirstBallMovement = 1;
-
-    InitBall(&Balls[0]);
-
-    int ArenaWidth = 160;
-    int ArenaHeight = 100;
-    Arena.P = V2(0, 5);
-    Arena.Size = V2(ArenaWidth, ArenaHeight);
-
-    Paddle.Size = V2(20, 2);
-    Paddle.P.Y = 45;
-    Paddle.Color = 0x0000ff00;
-
-    s32 BlockIndex = 0;
-
-    float BlocksFullWidth = ArenaWidth - 10;
-    float BlocksFullHeight = ArenaHeight - 10;
-
-    BlockTotalCount = 0;
-
-    for(s32 Index = 0; Index < BLOCK_COUNT; Index++) {
-        block *Block = BlockList + Index;
-        Block->Life = 0;
-    }
-
-    switch(GameMode)
-    {
-        case LEVEL_01_NORMAL:
-        {
-            s32 BlockXCount = 19;
-            s32 BlockYCount = 9;
-
-            s32 YColorStep = 255 / BlockYCount;
-            s32 XColorStep = 255 / BlockXCount;
-
-            real32 BlockOffsetX = 0.4;
-            real32 BlockOffsetY = 0.4;
-
-            real32 BlockSizeX = (BlocksFullWidth / BlockXCount) - BlockOffsetX;
-
-            real32 StartX = -BlocksFullWidth/2 + ((BlockSizeX+BlockOffsetX)/2);
-            real32 StartY = -ArenaHeight/2 + 10;
-
-            for(s32 Y = 0; Y < BlockYCount; Y++) {
-                for(s32 X = 0; X < BlockXCount; X++) {
-                    BlockTotalCount++; 
-                    block *Block = BlockList + BlockIndex++;
-                    if(BlockIndex >= BLOCK_COUNT) { BlockIndex = 0; }
-                    Block->Life = 1;
-                    Block->Color = (Y*YColorStep << 8) | 
-                                   (X*XColorStep);
-                    Block->Size.X = BlockSizeX;
-                    Block->Size.Y = 3;
-                    Block->P.X = StartX + X * (Block->Size.X + BlockOffsetX);
-                    Block->P.Y = StartY + Y * (Block->Size.Y + BlockOffsetY);
-                }
-            }
-        } break;
-
-        case LEVEL_02_WALL:
-        {
-            s32 BlockXCount = 19;
-            s32 BlockYCount = 12;
-
-            s32 YColorStep = 255 / BlockYCount;
-            s32 XColorStep = 1;
-
-            real32 BlockSizeX = (BlocksFullWidth / BlockXCount);
-
-            real32 StartX = -BlocksFullWidth/2 + (BlockSizeX/2);
-            real32 StartY = Arena.P.Y - Arena.Size.Y/2 + 10;
-
-            block *PrevHorizontalBlock = 0;
-            for(s32 Y = 0; Y < BlockYCount; Y++) {
-                for(s32 X = 0; X < BlockXCount; X++) {
-                    BlockTotalCount++; 
-                    block *Block = BlockList + BlockIndex++;
-                    if(BlockIndex >= BLOCK_COUNT) { BlockIndex = 0; }
-                    Block->Life = 1;
-                    Block->Color = (Y*YColorStep << 8) | 
-                                   (X*XColorStep);
-                    Block->Size.X = BlockSizeX;
-                    Block->Size.Y = 3;
-                    Block->P.Y = StartY + Y * (Block->Size.Y);
-
-                    if(PrevHorizontalBlock == NULL) {
-                        // Block->P.X = StartX + X * (Block->Size.X);
-                        Block->P.X = StartX;
-                    } else {
-                        Block->P.X = PrevHorizontalBlock->P.X + PrevHorizontalBlock->Size.X;
-                    }
-                    PrevHorizontalBlock = Block;
-
-                    printf("%f + %f = %f\n", Block->P.X, Block->Size.X, Block->P.X + Block->Size.X);
-                }
-                PrevHorizontalBlock = NULL;
-                printf("\n\n");
-            }
-
-        } break;
-
-        case LEVEL_03_STADIUM:
-        {
-        } break;
-
-        case LEVEL_04_CHESS:
-        {
-        } break;
-
-        case LEVEL_05_PONG:
-        {
-        } break;
-
-        case LEVEL_06_INVADERS:
-        {
-        } break;
-
-        default: {
-        };
-    }
-}
 
 void
 SpawnTripleShotsBalls(v2 Origin)
@@ -395,15 +564,19 @@ DrawTest(game_render_buffer *Buffer)
 void 
 SimulateGame(game_render_buffer *Buffer, game_input *Input, real32 dt)
 {
+    GlobalBuffer_DEBUG = Buffer;
+
     if(!Initialized) {
         Initialized = true;
-        GlobalCurrentLevel = LEVEL_01_NORMAL;
+        // GlobalCurrentLevel = LEVEL_01_NORMAL;
+        // GlobalCurrentLevel = LEVEL_05_PONG;
+        GlobalCurrentLevel = LEVEL_06_INVADERS;
         PowerBlockSize = V2(2, 2);
 
         StartGame(GlobalCurrentLevel);
     }
 
-    real32 PaddleSpeedMultiplier = 0.1;
+    real32 PaddleSpeedMultiplier = 0.17;
 
     // PaddleDesiredP = PixelToWorldCoord(Buffer, Input->MouseP);
     if(InvertedControlsTime > 0) { PaddleDesiredP = Paddle.P - (Input->MouseDp * PaddleSpeedMultiplier); }
@@ -568,6 +741,8 @@ SimulateGame(game_render_buffer *Buffer, game_input *Input, real32 dt)
     Paddle.P = PaddleDesiredP;
 
     SimulateGameMode(Buffer);
+    
+    SimulateLevelStateChanges(Buffer, GlobalCurrentLevel, Paddle.P);
 
     if(InvincibilityTime > 0) { Paddle.Color = 0x00ffffff;}
     else                      { Paddle.Color = 0x0000ff00; }
