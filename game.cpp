@@ -19,6 +19,7 @@ struct {
     v2 dP;
     v2 Size;
     v2 DesiredP;
+    real32 BaseSpeed;
     u32 Color;
 } typedef ball;
 
@@ -94,7 +95,7 @@ global_variable bool32 Initialized;
 global_variable paddle Paddle;
 // global_variable ball Ball;
 global_variable arena Arena;
-global_variable real32 Speed;
+// global_variable real32 Speed;
 global_variable bool32 FirstBallMovement;
 global_variable level GlobalCurrentLevel;
 global_variable s32 BlockTotalCount;
@@ -113,6 +114,8 @@ global_variable v2 PowerBlockSize;
 
 global_variable v2 PaddleDesiredP;
 global_variable s32 PlayerLifeCount;
+global_variable real32 GlobalBallBaseSpeed = 40;
+global_variable s32 GlobalScore;
 
 
 void
@@ -189,8 +192,9 @@ BlockIsDestroyed(block *Block)
 void
 InitBall(ball *Ball) 
 {
+    Ball->BaseSpeed = GlobalBallBaseSpeed;
     Ball->P = V2(10, -50);
-    Ball->dP = V2(0.0, 1.4);
+    Ball->dP = V2(0.0, -Ball->BaseSpeed);
     Ball->Size = V2(1.5, 1.5);
     Ball->Color = 0x00FFFFFF;
     Ball->Flags |= BALL_ACTIVE;
@@ -200,7 +204,7 @@ InitBall(ball *Ball)
 internal void 
 StartGame(level GameMode)
 {
-    Speed = 30.0f;
+    // Speed = 30.0f;
     PlayerLifeCount = 3;
 
     GlobalCurrentLevel = GameMode;
@@ -346,13 +350,12 @@ SpawnTripleShotsBalls(v2 Origin)
             Ball->Size = V2(1,1);
             Ball->Color = 0xcccccc;
             Ball->Flags = BALL_ACTIVE | BALL_DESTROYED_ON_DP_Y_DOWN;
-            Ball->dP.Y = -1;
-            Ball->dP.X = 1;
+            Ball->dP.Y = -GlobalBallBaseSpeed;
+            Ball->dP.X = GlobalBallBaseSpeed;
         }
-
     }
     if(Ball) {
-        Ball->dP.X = -1;
+        Ball->dP.X = -GlobalBallBaseSpeed;
     }
 }
 
@@ -372,6 +375,21 @@ LoseLife()
 
     FirstBallMovement = 1;
     InitBall(&Balls[0]);
+}
+
+void
+DrawTest(game_render_buffer *Buffer)
+{
+    float Size = 1;
+    float StartX = 0;
+
+    for(int YIndex = 0; YIndex < 10; YIndex++) {
+        for(int XIndex = 0; XIndex < 10; XIndex++) {
+            float X = StartX + (XIndex * Size);
+            float Y = YIndex;
+            DrawRect(Buffer, V2(X, Y), V2(Size, Size), 0x00000000);
+        }
+    }
 }
 
 void 
@@ -398,7 +416,7 @@ SimulateGame(game_render_buffer *Buffer, game_input *Input, real32 dt)
     {
         if(!(Ball->Flags & BALL_ACTIVE)) { continue; }
 
-        Ball->DesiredP = Ball->P + (Ball->dP * dt * Speed);
+        Ball->DesiredP = Ball->P + (Ball->dP * dt);
 
         bool32 BallXOverRight  = Ball->DesiredP.X + (Ball->Size.X/2) >  Arena.P.X + (Arena.Size.X*0.5);
         bool32 BallXOverLeft   = Ball->DesiredP.X - (Ball->Size.X/2) <  Arena.P.X - (Arena.Size.X*0.5);
@@ -431,6 +449,8 @@ SimulateGame(game_render_buffer *Buffer, game_input *Input, real32 dt)
                     static int test = 0;
                     collision_type Collision = CollisionSide(Block->P, Block->Size, V2(Ball->DesiredP.X, Ball->DesiredP.Y), Ball->Size);
                     if(COLLISION_NONE != CollisionSide(Block->P, Block->Size, V2(Ball->DesiredP.X, Ball->DesiredP.Y), Ball->Size)) {
+
+                        GlobalScore += 1;
 
                         ProcessBallOnDpYDown(Ball);
 
@@ -465,7 +485,7 @@ SimulateGame(game_render_buffer *Buffer, game_input *Input, real32 dt)
 
             Ball->dP.Y *= -1;
 
-            float MaxMoveSpeedX = 3;
+            float MaxMoveSpeedX = GlobalBallBaseSpeed * 2;
             float MinusOneToOneRange = -1 * ((Paddle.P.X - Ball->DesiredP.X) / ((float)Paddle.Size.X / 2));
             Ball->dP.X = Clamp(-MaxMoveSpeedX, MaxMoveSpeedX * MinusOneToOneRange, MaxMoveSpeedX);
 
@@ -484,6 +504,7 @@ SimulateGame(game_render_buffer *Buffer, game_input *Input, real32 dt)
         Power++) 
     {
         if(Power->Type == POWER_INACTIVE) { continue; }
+        real32 Speed = 30;
         Power->P.Y += 1*dt*Speed;
 
         if(IsColliding(Power->P, PowerBlockSize, Paddle.P, Paddle.Size)) {
@@ -583,9 +604,20 @@ SimulateGame(game_render_buffer *Buffer, game_input *Input, real32 dt)
     }
 
 
+    DrawNumber(Buffer, GlobalScore, V2(-Arena.Size.X/2 + 10, -Arena.Size.Y/2 + 1.5), 1.5, 0xffffffff);
+
+
 #if DEVELOPMENT
     if(IS_CHANGED(Input, BUTTON_LEFT)) { StartGame((level)(GlobalCurrentLevel - 1)); }
     if(IS_CHANGED(Input, BUTTON_RIGHT)) { StartGame((level)(GlobalCurrentLevel + 1)); }
+
+    // if(IS_CHANGED(Input, BUTTON_LEFT)) { 
+    //     test--;
+    // }
+    // if(IS_CHANGED(Input, BUTTON_RIGHT)) { 
+    //     test++;
+    // }
+
     if(IS_CHANGED(Input, BUTTON_UP)) { 
         if(InvincibilityTime > 0) { InvincibilityTime = 0.0f; }
         else { InvincibilityTime = 20.0f; }

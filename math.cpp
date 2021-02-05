@@ -54,6 +54,14 @@ operator+(v2 A, v2 B) {
     return Result;
 }
 
+v2 
+operator/(v2 A, real32 B) {
+    v2 Result = {};
+    Result.X = A.X / B;
+    Result.Y = A.Y / B;
+    return Result;
+}
+
 
 v2 
 operator-(v2 A, v2 B) {
