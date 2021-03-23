@@ -1,4 +1,3 @@
-
 #include "software_renderer.cpp"
 #include "collision.cpp"
 
@@ -11,7 +10,16 @@ struct {
     v2 dP;
     v2 Size;
     u32 Color;
+
+    v2 VisualP;
+    v2 VisualDp;
+    v2 VisualSize;
 } typedef paddle;
+
+struct {
+    v2 P;
+    real32 Life;
+} typedef ball_trail;
 
 struct {
     u32 Flags;
@@ -21,6 +29,10 @@ struct {
     v2 DesiredP;
     real32 BaseSpeed;
     u32 Color;
+
+    ball_trail Trails[64];
+    u32 NextTrail;
+    s32 TrailSpawner;
 } typedef ball;
 
 struct {
@@ -92,6 +104,9 @@ typedef struct {
         level_state_invaders Invaders;
     };
 } game_state;
+
+
+#include "console.cpp"
 
 global_variable game_state GlobalGameState;
 
@@ -200,9 +215,12 @@ StartGame(level GameMode)
     Arena.P = V2(0, 5);
     Arena.Size = V2(ArenaWidth, ArenaHeight);
 
-    Paddle.Size = V2(20, 2);
+    Paddle.Size = V2(20, 4);
+    Paddle.VisualSize = V2(Paddle.Size.X, Paddle.Size.Y);
+
     Paddle.P.Y = 45;
     Paddle.Color = 0x0000ff00;
+    Paddle.VisualP = V2(Paddle.P.X, Paddle.P.Y);
 
     s32 GlobalBlockIndex = 0;
 
@@ -423,7 +441,6 @@ SimulateLevelStateChanges(game_render_buffer *Buffer, level CurrentLevel, v2 Pad
            real32 InvaderLeftMargin  = LevelInvaders->CenterP.X - LevelInvaders->InvadersFullSize.X/2;
            real32 InvaderRightMargin = LevelInvaders->CenterP.X + LevelInvaders->InvadersFullSize.X/2;
 
-           // printf("%.3f %.3f %.3f %.3f\n", (-Arena.Size.X/2), InvaderLeftMargin,InvaderRightMargin, (Arena.Size.X/2));
            if(InvaderLeftMargin < (-Arena.Size.X/2) ) {
                LevelInvaders->dP.X *= -1;
                LevelInvaders->CenterP.Y += 5;
@@ -437,7 +454,7 @@ SimulateLevelStateChanges(game_render_buffer *Buffer, level CurrentLevel, v2 Pad
                Block->P.X = LevelInvaders->CenterP.X + Block->DistanceFromCenter.X;
                Block->P.Y = LevelInvaders->CenterP.Y + Block->DistanceFromCenter.Y;
 
-               if(COLLISION_NONE != CollisionSide(Block->P, Block->Size, PaddleDesiredP, Paddle.Size)) {
+               if(COLLISION_NONE != CollisionSide(Block->P, Block->Size, PaddleDesiredP, Paddle.VisualSize)) {
                    StartGame(GlobalCurrentLevel);
                    printf("Collided\n");
                }
@@ -454,7 +471,7 @@ SimulateLevelStateChanges(game_render_buffer *Buffer, level CurrentLevel, v2 Pad
 }
 
 void
-SpawnPowerup(v2 P) 
+SpawnPowerup(v2 P, power_type Type) 
 {
     power *Power = PowerBlocks + NextPowerBlock;
     NextPowerBlock++;
@@ -462,12 +479,13 @@ SpawnPowerup(v2 P)
         NextPowerBlock = 0;
     }
     Power->P = P;
+    Power->Type = Type;
     // Power->Type = POWER_INVINCIBILITY;
     // Power->Type = POWER_TRIPLE_SHOT;
     // Power->Type = POWER_COMET;
     // Power->Type = POWER_INSTAKILL;
     // Power->Type = POWER_STRONG_BLOCKS;
-    Power->Type = POWER_INVERTED_CONTROLS;
+    // Power->Type = POWER_INVERTED_CONTROLS;
 }
 
 void
@@ -486,10 +504,17 @@ BlockIsDestroyed(block *Block)
 
     // SpawnPowerup(Block->P);
 
+    power_type Type = POWER_TRIPLE_SHOT;
+
     switch(GlobalCurrentLevel) {
         case LEVEL_01_NORMAL: 
         {
-            // SpawnPowerup(Block->P);
+            SpawnPowerup(Block->P, POWER_INVINCIBILITY);
+        } break;
+
+        case LEVEL_02_WALL: 
+        {
+            SpawnPowerup(Block->P, POWER_TRIPLE_SHOT);
         } break;
 
         default: 
@@ -568,9 +593,9 @@ SimulateGame(game_render_buffer *Buffer, game_input *Input, real32 dt)
 
     if(!Initialized) {
         Initialized = true;
-        // GlobalCurrentLevel = LEVEL_01_NORMAL;
+        GlobalCurrentLevel = LEVEL_01_NORMAL;
         // GlobalCurrentLevel = LEVEL_05_PONG;
-        GlobalCurrentLevel = LEVEL_06_INVADERS;
+        // GlobalCurrentLevel = LEVEL_06_INVADERS;
         PowerBlockSize = V2(2, 2);
 
         StartGame(GlobalCurrentLevel);
@@ -650,16 +675,21 @@ SimulateGame(game_render_buffer *Buffer, game_input *Input, real32 dt)
                         break;
                     }
                 }
+
+                if(Ball->dP.Y > 0) {
+                    CometTime = 0;
+                }
+
             }
         }
 
-        if(IsColliding(Ball->DesiredP, Ball->Size, PaddleDesiredP, Paddle.Size)) {
+        if(IsColliding(Ball->DesiredP, Ball->Size, PaddleDesiredP, Paddle.VisualSize)) {
             FirstBallMovement = false;
 
             Ball->dP.Y *= -1;
 
             float MaxMoveSpeedX = GlobalBallBaseSpeed * 2;
-            float MinusOneToOneRange = -1 * ((Paddle.P.X - Ball->DesiredP.X) / ((float)Paddle.Size.X / 2));
+            float MinusOneToOneRange = -1 * ((Paddle.P.X - Ball->DesiredP.X) / ((float)Paddle.VisualSize.X / 2));
             Ball->dP.X = Clamp(-MaxMoveSpeedX, MaxMoveSpeedX * MinusOneToOneRange, MaxMoveSpeedX);
 
             if(GlobalNumberOfTripleShots > 0) {
@@ -670,6 +700,13 @@ SimulateGame(game_render_buffer *Buffer, game_input *Input, real32 dt)
             Ball->P.X = Ball->DesiredP.X;
             Ball->P.Y = Ball->DesiredP.Y;
         }
+
+        ball_trail *Trail = Ball->Trails + Ball->NextTrail++;
+        if(Ball->NextTrail >= ARRAY_COUNT(Ball->Trails)) {Ball->NextTrail = 0;}
+        Trail->P =  Ball->P;
+        // Trail->Life = 0.005f*ARRAY_COUNT(Ball->Trails);
+        Trail->Life = 0.3f;
+        Ball->TrailSpawner -= dt;
     }
 
     for(power *Power = PowerBlocks; 
@@ -680,7 +717,7 @@ SimulateGame(game_render_buffer *Buffer, game_input *Input, real32 dt)
         real32 Speed = 30;
         Power->P.Y += 1*dt*Speed;
 
-        if(IsColliding(Power->P, PowerBlockSize, Paddle.P, Paddle.Size)) {
+        if(IsColliding(Power->P, PowerBlockSize, Paddle.P, Paddle.VisualSize)) {
             // Paddle.Color = 0x00000000;
             switch(Power->Type) {
                 case POWER_INVINCIBILITY: {
@@ -697,7 +734,8 @@ SimulateGame(game_render_buffer *Buffer, game_input *Input, real32 dt)
 
                 case POWER_INSTAKILL: 
                 {
-                    StartGame(GlobalCurrentLevel);
+                    // StartGame(GlobalCurrentLevel);
+                    LoseLife();
                 } break;
 
                 case POWER_STRONG_BLOCKS: 
@@ -740,6 +778,19 @@ SimulateGame(game_render_buffer *Buffer, game_input *Input, real32 dt)
 
     Paddle.P = PaddleDesiredP;
 
+    {
+        Paddle.VisualDp.X = (Paddle.P.X - Paddle.VisualP.X);
+        Paddle.VisualP.X += (Paddle.VisualDp.X) * 0.2;
+
+        real32 ScaleFactor = Absolute(Paddle.VisualDp.X) / 40.0f; // NOTE: 40 is just arbitrary value
+
+        real32 PaddleScaleX = Paddle.Size.X * ScaleFactor;
+        real32 PaddleScaleY = Paddle.Size.Y/2 * ScaleFactor;
+
+        Paddle.VisualSize.X = Paddle.Size.X + PaddleScaleX;
+        Paddle.VisualSize.Y = Paddle.Size.Y - PaddleScaleY;
+    }
+
     SimulateGameMode(Buffer);
     
     SimulateLevelStateChanges(Buffer, GlobalCurrentLevel, Paddle.P);
@@ -747,10 +798,19 @@ SimulateGame(game_render_buffer *Buffer, game_input *Input, real32 dt)
     if(InvincibilityTime > 0) { Paddle.Color = 0x00ffffff;}
     else                      { Paddle.Color = 0x0000ff00; }
 
-    DrawRect(Buffer, Paddle.P, Paddle.Size, Paddle.Color);
+    // DrawRect(Buffer, Paddle.P, Paddle.Size, Paddle.Color);
+    DrawRect(Buffer, Paddle.VisualP, Paddle.VisualSize,Paddle.Color);
 
     for(ball *Ball = Balls; Ball != Balls + ARRAY_COUNT(Balls); Ball++) {
         if(!(Ball->Flags & BALL_ACTIVE)) { continue; }
+
+        for(int i = 0; i < ARRAY_COUNT(Ball->Trails); i++) {
+            ball_trail *Trail = Ball->Trails + i;
+            Trail->Life -= dt;
+            if(Trail->Life <= 0) { continue; }
+            DrawRectAlpha(Buffer, Trail->P, Ball->Size, Ball->Color, Trail->Life); 
+        }
+
         DrawRect(Buffer, V2(Ball->P.X, Ball->P.Y), Ball->Size, Ball->Color);
     }
 
@@ -781,6 +841,15 @@ SimulateGame(game_render_buffer *Buffer, game_input *Input, real32 dt)
 
     DrawNumber(Buffer, GlobalScore, V2(-Arena.Size.X/2 + 10, -Arena.Size.Y/2 + 1.5), 1.5, 0xffffffff);
 
+    // ConsolePrintInt((int)Paddle.P.X);
+    // static int OldPaddlePX = 0;
+    // if(OldPaddlePX != (int)Paddle.P.X) {
+    //     printf("%d %d\n", OldPaddlePX, (int)Paddle.P.X);
+    //     ConsolePrintInt((int)Paddle.P.X);
+    // }
+    // OldPaddlePX = (int)Paddle.P.X;
+    DrawConsoleMessages(Buffer, &Arena, dt);
+
 
 #if DEVELOPMENT
     if(IS_CHANGED(Input, BUTTON_LEFT)) { StartGame((level)(GlobalCurrentLevel - 1)); }
@@ -792,6 +861,12 @@ SimulateGame(game_render_buffer *Buffer, game_input *Input, real32 dt)
     // if(IS_CHANGED(Input, BUTTON_RIGHT)) { 
     //     test++;
     // }
+    
+    if(IS_PRESSED(Input, BUTTON_DOWN)) { 
+        static int test = 0;
+        printf("test: %d\n", test);
+        ConsolePrintInt(test++);
+    }
 
     if(IS_CHANGED(Input, BUTTON_UP)) { 
         if(InvincibilityTime > 0) { InvincibilityTime = 0.0f; }
@@ -799,4 +874,5 @@ SimulateGame(game_render_buffer *Buffer, game_input *Input, real32 dt)
     }
     // if(IS_PRESSED(Input, BUTTON_DOWN))  { Paddle.P.Y += Speed; }
 #endif
+
 }

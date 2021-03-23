@@ -35,32 +35,45 @@ PixelToWorldCoord(game_render_buffer *Buffer, v2 P)
 
 
 void
-DrawRectInPixels(game_render_buffer *Buffer, int DesiredStartX, int DesiredStartY, int Width, int Height, u32 Color)
+DrawRectInPixels(game_render_buffer *Buffer, int DesiredStartX, int DesiredStartY, int Width, int Height, u32 SrcColor, real32 Alpha = 1.0)
 {
     int StartX = Clamp(0, DesiredStartX, Buffer->Width);
     int StartY = Clamp(0, DesiredStartY, Buffer->Height);
     int EndX   = Clamp(0, DesiredStartX + Width, Buffer->Width);
     int EndY   = Clamp(0, DesiredStartY + Height, Buffer->Height);
 
-    // for(int Y = StartY; Y <= EndY; Y++) {
     for(int Y = StartY; Y < EndY; Y++) {
         u8 *Row = Buffer->Pixels + Y*Buffer->Pitch;
         for(int X = StartX; X < EndX; X++) { // TODO: Work out this logic
-        // for(int X = StartX; X <= EndX; X++) {
             u32 *Pixel = (u32 *)Row + X;
-            *Pixel = Color;
+
+            if(Alpha < 1) {
+                u32 DestColor = *Pixel;
+                u8 DestR = DestColor >> 16;
+                u8 DestG = DestColor >> 8;
+                u8 DestB = DestColor >> 0;
+
+                u8 SrcR = SrcColor >> 16;
+                u8 SrcG = SrcColor >> 8;
+                u8 SrcB = SrcColor >> 0;
+
+                u8 R = (DestR * (1 - Alpha)) + (SrcR * Alpha);
+                u8 G = (DestG * (1 - Alpha)) + (SrcG * Alpha);
+                u8 B = (DestB * (1 - Alpha)) + (SrcB * Alpha);
+
+                u32 Color = (R << 16) | (G << 8) | (B << 0);
+
+                *Pixel = Color;
+            } else {
+                *Pixel = SrcColor;
+            }
         }
     }
 }
 
 void
-DrawRectInPixels(game_render_buffer *Buffer, float DesiredStartX, float DesiredStartY, float Width, float Height, u32 Color)
+DrawRectInPixels(game_render_buffer *Buffer, float DesiredStartX, float DesiredStartY, float Width, float Height, u32 SrcColor, real32 Alpha = 1.0f)
 {
-    // int StartX = floor(Clamp(0, DesiredStartX, Buffer->Width));
-    // int StartY = floor(Clamp(0, DesiredStartY, Buffer->Height));
-    // int EndX   = ceil(Clamp(0, DesiredStartX + Width, Buffer->Width));
-    // int EndY   = ceil(Clamp(0, DesiredStartY + Height, Buffer->Height));
-
     int StartX = floor(Clamp(0, DesiredStartX, Buffer->Width));
     int StartY = floor(Clamp(0, DesiredStartY, Buffer->Height));
     int EndX   = ceil(Clamp(0, DesiredStartX + Width, Buffer->Width));
@@ -70,7 +83,27 @@ DrawRectInPixels(game_render_buffer *Buffer, float DesiredStartX, float DesiredS
         u8 *Row = Buffer->Pixels + Y*Buffer->Pitch;
         for(int X = StartX; X < EndX; X++) { // TODO: Work out this logic
             u32 *Pixel = (u32 *)Row + X;
-            *Pixel = Color;
+
+            if(Alpha < 1) {
+                u32 DestColor = *Pixel;
+                u8 DestR = DestColor >> 16;
+                u8 DestG = DestColor >> 8;
+                u8 DestB = DestColor >> 0;
+
+                u8 SrcR = SrcColor >> 16;
+                u8 SrcG = SrcColor >> 8;
+                u8 SrcB = SrcColor >> 0;
+
+                u8 R = (DestR * (1 - Alpha)) + (SrcR * Alpha);
+                u8 G = (DestG * (1 - Alpha)) + (SrcG * Alpha);
+                u8 B = (DestB * (1 - Alpha)) + (SrcB * Alpha);
+
+                u32 Color = (R << 16) | (G << 8) | (B << 0);
+
+                *Pixel = Color;
+            } else {
+                *Pixel = SrcColor;
+            }
         }
     }
 }
@@ -95,6 +128,27 @@ DrawRect(game_render_buffer *Buffer, v2 Position, v2 Size, u32 Color)
     float SizeY = Size.Y;
 
     DrawRectInPixels(Buffer, X0, Y0, SizeX, SizeY, Color);
+}
+
+void
+DrawRectAlpha(game_render_buffer *Buffer, v2 Position, v2 Size, u32 Color, real32 Alpha)
+{
+    real32 AspectMultiplier = CalculateAspectMultiplier(Buffer);
+    real32 StepSize = Scale * AspectMultiplier;
+
+    Size.X     *= StepSize;
+    Size.Y     *= StepSize;
+    Position.X *= StepSize;
+    Position.Y *= StepSize;
+    Position.X += Buffer->Width * 0.5;
+    Position.Y += Buffer->Height * 0.5;
+
+    float X0    = Position.X - (Size.X * 0.5);
+    float Y0    = Position.Y - (Size.Y * 0.5);
+    float SizeX = Size.X;
+    float SizeY = Size.Y;
+
+    DrawRectInPixels(Buffer, X0, Y0, SizeX, SizeY, Color, Alpha);
 }
 
 void
@@ -255,12 +309,19 @@ DrawNumber(game_render_buffer *Buffer, s32 Number, v2 P, real32 Size, u32 Color)
     s32 IterateNumber = Number;
     u32 DigitCount = CalculateDigitCount(Number);
 
+    bool32 IsNegative = Number < 0;
+
     real32 StartX = P.X;
     real32 StartY = P.Y;
     real32 Offset = (Size / (CHAR_ROW_LENGTH - 1));
     real32 CharWidthWithRightOffset = Size + Offset;
 
     bool32 FirstPass = true;
+    if(IsNegative) {
+        DrawRect(Buffer, V2(StartX, StartY+1), V2(1, 0.4), Color);
+        StartX += 1;
+        IterateNumber *= -1;
+    }
 
     while(FirstPass | IterateNumber) {
         FirstPass = false;

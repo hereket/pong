@@ -20,6 +20,16 @@ Clamp(int Min, int Value, int Max)
     return Result;
 }
 
+inline s32 
+Absolute(real32 Value)
+{
+    real32 Result = Value;
+    if(Value < 0) {
+        Result *= -1;
+    }
+    return Result;
+}
+
 
 
 struct {
@@ -70,3 +80,13 @@ operator-(v2 A, v2 B) {
     Result.Y = A.Y - B.Y;
     return Result;
 }
+
+
+
+
+/*********************************************************************************
+ **********    RANDOM    *********************************************************
+ *********************************************************************************
+ */
+
+u32 GlobalRandomState = 31415;
