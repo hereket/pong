@@ -15,6 +15,9 @@ enum {
     BUTTON_ACTION,
     BUTTON_FAST,
 
+    BUTTON_MOUSE_LEFT,
+    BUTTON_MOUSE_RIGHT,
+
     BUTTON_COUNT,
 };
 
@@ -30,6 +33,13 @@ struct {
     u8 *Pixels;
     u32 Pitch;
 } typedef game_render_buffer;
+
+typedef struct {
+    u8 *Memory;
+    u32 Width;
+    u32 Height;
+} bitmap;
+
 
 
 

@@ -84,7 +84,9 @@ DrawRectInPixels(game_render_buffer *Buffer, float DesiredStartX, float DesiredS
         for(int X = StartX; X < EndX; X++) { // TODO: Work out this logic
             u32 *Pixel = (u32 *)Row + X;
 
-            if(Alpha < 1) {
+            real32 LocalAlpha = Alpha;
+
+            if(LocalAlpha < 1) {
                 u32 DestColor = *Pixel;
                 u8 DestR = DestColor >> 16;
                 u8 DestG = DestColor >> 8;
@@ -94,9 +96,9 @@ DrawRectInPixels(game_render_buffer *Buffer, float DesiredStartX, float DesiredS
                 u8 SrcG = SrcColor >> 8;
                 u8 SrcB = SrcColor >> 0;
 
-                u8 R = (DestR * (1 - Alpha)) + (SrcR * Alpha);
-                u8 G = (DestG * (1 - Alpha)) + (SrcG * Alpha);
-                u8 B = (DestB * (1 - Alpha)) + (SrcB * Alpha);
+                u8 R = (DestR * (1 - LocalAlpha)) + (SrcR * LocalAlpha);
+                u8 G = (DestG * (1 - LocalAlpha)) + (SrcG * LocalAlpha);
+                u8 B = (DestB * (1 - LocalAlpha)) + (SrcB * LocalAlpha);
 
                 u32 Color = (R << 16) | (G << 8) | (B << 0);
 
@@ -148,7 +150,94 @@ DrawRectAlpha(game_render_buffer *Buffer, v2 Position, v2 Size, u32 Color, real3
     float SizeX = Size.X;
     float SizeY = Size.Y;
 
+    real32 XStartAlpha = Alpha * (1 - (X0 - floor(X0)));
+    real32 XEndAlpha = Alpha * ((X0 + Size.X) - (int)(X0 + Size.X));
+    real32 YStartAlpha = Alpha * (1 - (Y0 - floor(Y0)));
+    real32 YEndAlpha = Alpha * ((Y0 + Size.Y) - (int)(Y0 + Size.Y));
+
+    // DrawRectInPixels(Buffer, X0-1, Y0, 1.0f, SizeY, Color, XStartAlpha);
+    // DrawRectInPixels(Buffer, X0+SizeX, Y0, 1.0f, SizeY, Color, XEndAlpha);
+    //
+    // DrawRectInPixels(Buffer, X0, Y0-1, SizeX, 1.0f, Color, YStartAlpha);
+    // DrawRectInPixels(Buffer, X0, Y0+SizeY, SizeY, 1.0f, Color, YEndAlpha);
+
     DrawRectInPixels(Buffer, X0, Y0, SizeX, SizeY, Color, Alpha);
+}
+
+void
+DrawRectRotated(game_render_buffer *Buffer, v2 Position, v2 Size, u32 SrcColor, real32 Alpha, real32 Angle)
+{
+    real32 AspectMultiplier = CalculateAspectMultiplier(Buffer);
+    real32 StepSize = Scale * AspectMultiplier;
+
+    Size.X     *= StepSize;
+    Size.Y     *= StepSize;
+    Position.X *= StepSize;
+    Position.Y *= StepSize;
+    Position.X += Buffer->Width * 0.5;
+    Position.Y += Buffer->Height * 0.5;
+
+    int SizeX = round(Size.X);
+    int SizeY = round(Size.Y);
+    int X0    = round(Position.X - (SizeX * 0.5));
+    int Y0    = round(Position.Y - (SizeY * 0.5));
+
+    int StartX = Clamp(0, X0, Buffer->Width);
+    int StartY = Clamp(0, Y0, Buffer->Height);
+    int EndX   = Clamp(0, X0 + SizeX, Buffer->Width);
+    int EndY   = Clamp(0, Y0 + SizeY, Buffer->Height);
+
+    // DrawRectInPixels(Buffer, (int)StartX, (int)StartY, (int)Size.X, (int)Size.Y, 0xff0000);
+
+    // TODO: This is incorrect. Instead of going from source pixes to dest pixels, it should be
+    // all backwards (at least for this algo). 
+
+    real32 CosValue = cos(Angle);
+    real32 SinValue = sin(Angle);
+    for(int YIndex = StartY; YIndex < EndY; YIndex++) {
+        for(int XIndex = StartX; XIndex < EndX; XIndex++) { // TODO: Work out this logic
+
+            real32 XOrig = Position.X - XIndex;
+            real32 YOrig = Position.Y - YIndex;
+
+            real32 CosX = CosValue*(real32)XOrig;
+            real32 SinX = SinValue*(real32)XOrig;
+            real32 SinY = SinValue*(real32)YOrig;
+            real32 CosY = CosValue*(real32)YOrig;
+
+            real32 Xreal = CosX - SinY + (real32)Position.X;
+            real32 Yreal = SinX + CosY + (real32)Position.Y;
+            s32 X = round(Xreal);
+            s32 Y = round(Yreal);
+
+            u32 *Pixel = (u32 *)Buffer->Pixels + (Y*Buffer->Width) + X;
+
+            if(Alpha < 1) {
+                u32 DestColor = *Pixel;
+                u8 DestR = DestColor >> 16;
+                u8 DestG = DestColor >> 8;
+                u8 DestB = DestColor >> 0;
+
+                u8 SrcR = SrcColor >> 16;
+                u8 SrcG = SrcColor >> 8;
+                u8 SrcB = SrcColor >> 0;
+
+                u8 R = (DestR * (1 - Alpha)) + (SrcR * Alpha);
+                u8 G = (DestG * (1 - Alpha)) + (SrcG * Alpha);
+                u8 B = (DestB * (1 - Alpha)) + (SrcB * Alpha);
+
+                u32 Color = (R << 16) | (G << 8) | (B << 0);
+
+                *Pixel = Color;
+            } else {
+                *Pixel = SrcColor;
+            }
+        }
+    }
+
+
+    // DrawRectInPixels(Buffer, Position.X, Position.Y, 4.0f, 4.0f, 0x000000);
+    // DrawRectInPixels(Buffer, (real32)StartX, (real32)StartY, 4.0f, 4.0f, 0x000000);
 }
 
 void
@@ -334,5 +423,72 @@ DrawNumber(game_render_buffer *Buffer, s32 Number, v2 P, real32 Size, u32 Color)
         DrawDigit(Buffer, Digit, V2(X, Y), Size, Color);
 
         DigitCount--;
+    }
+}
+
+void 
+DrawBitmap(game_render_buffer *Buffer, bitmap *Bitmap, v2 Position, v2 Size) {
+    real32 AspectMultiplier = CalculateAspectMultiplier(Buffer);
+    real32 StepSize = Scale * AspectMultiplier;
+
+    Size.X     *= StepSize;
+    Size.Y     *= StepSize;
+    Position.X *= StepSize;
+    Position.Y *= StepSize;
+    Position.X += Buffer->Width * 0.5;
+    Position.Y += Buffer->Height * 0.5;
+
+    int SizeX = round(Size.X);
+    int SizeY = round(Size.Y);
+    int X0    = round(Position.X - (SizeX * 0.5));
+    int Y0    = round(Position.Y - (SizeY * 0.5));
+
+    int StartX = Clamp(0, X0, Buffer->Width);
+    int StartY = Clamp(0, Y0, Buffer->Height);
+    int EndX   = Clamp(0, X0 + SizeX, Buffer->Width);
+    int EndY   = Clamp(0, Y0 + SizeY, Buffer->Height);
+
+    for(int YIndex = StartY; YIndex <= EndY; YIndex++) {
+        real32 a_y = ((float)YIndex - StartY) / (float)SizeY;
+        s32 b_y = a_y * Bitmap->Height;
+        for(int XIndex = StartX; XIndex <= EndX; XIndex++) { 
+            real32 a_x = ((float)XIndex - StartX) / (float)SizeX;
+            s32 b_x = a_x * Bitmap->Width;
+            
+            u32 *SrcPixel = (u32 *)Bitmap->Memory + (b_y * Bitmap->Width + b_x);
+            u8 AlphaChannel = *SrcPixel >> 24 & 0xFF;
+            u32 *DestPixel = (u32 *)Buffer->Pixels + YIndex * Buffer->Width + XIndex;
+
+            // printf("%d %d %d %d\n", 
+            //         *SrcPixel >> 24 & 0xFF,
+            //         *SrcPixel >> 16 & 0xFF,
+            //         *SrcPixel >> 8 & 0xFF,
+            //         *SrcPixel >> 0 & 0xFF
+            //         );
+
+            if(AlphaChannel < 255) {
+                real32 Alpha = (real32)AlphaChannel / 255;
+                u32 DestColor = *DestPixel;
+                u32 SrcColor = *SrcPixel;
+
+                u8 DestR = DestColor >> 16;
+                u8 DestG = DestColor >> 8;
+                u8 DestB = DestColor >> 0;
+
+                u8 SrcR = SrcColor >> 16;
+                u8 SrcG = SrcColor >> 8;
+                u8 SrcB = SrcColor >> 0;
+
+                u8 R = (DestR * (1 - Alpha)) + (SrcR * Alpha);
+                u8 G = (DestG * (1 - Alpha)) + (SrcG * Alpha);
+                u8 B = (DestB * (1 - Alpha)) + (SrcB * Alpha);
+
+                u32 Color = (R << 16) | (G << 8) | (B << 0);
+
+                *DestPixel = Color;
+            } else {
+                *DestPixel = *SrcPixel;
+            }
+        }
     }
 }

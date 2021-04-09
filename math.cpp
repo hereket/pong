@@ -1,3 +1,4 @@
+#include <limits.h>
 
 s32 
 RoundBottom(real32 Value)
@@ -90,3 +91,26 @@ operator-(v2 A, v2 B) {
  */
 
 u32 GlobalRandomState = 31415;
+
+
+static inline u32 
+RandomU32() {
+    u32 Result = GlobalRandomState;
+    Result ^= Result << 13;
+    Result ^= Result >> 17;
+    Result ^= Result << 5;
+    GlobalRandomState = Result;
+    return Result;
+}
+
+static inline real32
+RandomUniform() {
+    real32 Result = (real32)RandomU32() / (real32)UINT_MAX;
+    return Result;
+}
+
+static inline real32
+RandomUniformRange(real32 Min, real32 Max) {
+    real32 Result = Min + RandomUniform() * (Max - Min);
+    return Result;
+}

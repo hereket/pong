@@ -1,9 +1,16 @@
+
+
 #include <SDL2/SDL.h>
 #include <stdint.h>
-
+#include <stdio.h>
 #include "utils.cpp"
+
+#include "platform.h"
+
 #include "math.cpp"
 #include "game.cpp"
+
+
 
 
 struct {
@@ -35,17 +42,157 @@ MACResizeTexture(SDL_Renderer *Renderer,  macos_render_buffer *Buffer, int Width
 
     Buffer->Texture = SDL_CreateTexture(Renderer, SDL_PIXELFORMAT_ARGB8888, 
                                         SDL_TEXTUREACCESS_STREAMING, Width, Height);
-    
+}
+
+DEBUG_PLATFORM_READ_ENTIRE_FILE(ReadEntireFile) 
+{
+    FILE *File = fopen((const char *)Filename, "r");
+    read_file_result LoadedFile = {};
+
+    if(File != NULL) {
+        fseek(File, 0, SEEK_END);
+        u64 FileSize = ftell(File);
+        rewind(File);
+
+        LoadedFile.Memory = (u8 *)malloc(FileSize);
+        LoadedFile.Size = FileSize;
+
+        fread(LoadedFile.Memory, 1, LoadedFile.Size, File);
+    }
+
+    return LoadedFile;
+}
+
+DEBUG_PLATFORM_WRITE_ENTIRE_FILE(WriteEntireFile)
+{
+    s64 BytesWritten = 0;
+    FILE *f = fopen(Filename, "wb");
+    // BytesWritten = fwrite(Data, Size, 1, f);
+    BytesWritten = fwrite(Data, 1, Size, f);
+    fclose(f);
+    return BytesWritten;
+}
+
+
+int AMPLITUDE = 28000;
+int SAMPLE_RATE = 44100;
+
+// void AudioCallback(void *user_data, Uint8 *raw_buffer, int bytes)
+// {
+//     Sint16 *buffer = (Sint16*)raw_buffer;
+//     int length = bytes / 2; // 2 bytes per sample for AUDIO_S16SYS
+//     int &sample_nr(*(int*)user_data);
+//
+//     for(int i = 0; i < length; i++, sample_nr++)
+//     {
+//         double time = (double)sample_nr / (double)SAMPLE_RATE;
+//         buffer[i] = (Sint16)(AMPLITUDE * sin(2.0f * M_PI * 441.0f * time)); // render 441 HZ sine wave
+//     }
+// }
+
+#define PLAYING_SOUNDS_COUNT 16
+loaded_audio PlayingSounds[PLAYING_SOUNDS_COUNT];
+
+DEBUG_PLATFORM_PLAY_WAV(PlayWav)
+{
+
+    Track.IsPlaying = true;
+    Track.IsLooping = IsLooping;
+
+    bool32 AddedTrack = false;
+
+    for(s32 i = 0; i < PLAYING_SOUNDS_COUNT; i++) {
+        loaded_audio OldTrack = PlayingSounds[i];
+        if(!OldTrack.IsPlaying) {
+            PlayingSounds[i] = Track;
+            AddedTrack = true;
+            break;
+        }
+    }
+
+    if(!AddedTrack) {
+        printf("Couldn't add track. Probably no more empty slots left.");
+    }
+
+}
+
+DEBUG_PLATFORM_LOAD_WAV(LoadWav)
+{
+    SDL_AudioSpec AudioSpec;
+    loaded_audio Track = {};
+    SDL_LoadWAV((char *)Filename, &AudioSpec, &Track.Data, &Track.Size);
+    Track.SampleCount = Track.Size / 2;
+
+    return Track;
+}
+
+void AudioCallback(void *UserData, u8 *Stream, int RequestedBytes)
+{
+    s32 ChannelCount = 2; // TODO: Get this infor from ...?
+
+    s16 *DestBuffer = (s16 *)Stream;
+    s32 Length = RequestedBytes / ChannelCount;
+
+    for(int i = 0; i < Length; i++) {
+        DestBuffer[i] = 0;
+    }
+
+    for(int i = 0; i < PLAYING_SOUNDS_COUNT; i++) {
+        loaded_audio *Track = PlayingSounds + i;
+        if(Track->IsPlaying) {
+            s16 *SrcBuffer = (s16 *)Track->Data;
+
+            for(int i = 0; i < Length; i++) {
+                u32 SrcIndex = Track->Position++;
+                if(Track->Position >= Track->SampleCount) { 
+                    if(Track->IsLooping) {
+                        Track->Position = 0; 
+                    } else {
+                        Track->IsPlaying = false;
+                        break;
+                    }
+                }
+
+                s32 Val = AMPLITUDE; 
+                s32 TestValue = DestBuffer[i] + SrcBuffer[SrcIndex];
+                s32 EndValue = Clamp(-Val, TestValue, Val);
+                DestBuffer[i] = EndValue;
+            }
+
+        }
+    }
 }
 
 
 int main()
 {
-    if(SDL_Init(SDL_INIT_VIDEO) < 0) 
+    if(SDL_Init(SDL_INIT_VIDEO) < 0) { printf("Failed to initialize the SDL2 library\n"); return -1; }
+    if(SDL_Init(SDL_INIT_AUDIO) < 0) { printf("Failed to init sdl audio\n"); return - 1; }
+
+
     {
-        printf("Failed to initialize the SDL2 library\n");
-        return -1;
+        SDL_AudioSpec WantedAudioSpec;
+        WantedAudioSpec.freq = SAMPLE_RATE;
+        WantedAudioSpec.format = AUDIO_S16;
+        WantedAudioSpec.channels = 2;
+        WantedAudioSpec.samples = 512;
+        WantedAudioSpec.callback = AudioCallback;
+
+        if(SDL_OpenAudio(&WantedAudioSpec, NULL)) { printf("Failed to open audio"); }
+
+        SDL_PauseAudio(0);
     }
+
+
+
+
+
+    game_memory GameMemory = {};
+    GameMemory.DEBUGPlatformReadEntireFile = ReadEntireFile;
+    GameMemory.DEBUGPlatformWriteEntireFile = WriteEntireFile;
+
+    GameMemory.DEBUGPlatformLoadWav = LoadWav;
+    GameMemory.DEBUGPlatformPlayWav = PlayWav;
 
     /* s32 WindowWidth = 640; */
     /* s32 WindowHeight = 480; */
@@ -84,6 +231,13 @@ int main()
             Input.Buttons[Index].Changed = false;
         }
 
+#define PROCESS_BUTTON(KEY, ID) \
+                    if(event.key.keysym.sym == KEY) \
+                    { \
+                        Input.Buttons[ID].Changed = (IsDown != Input.Buttons[ID].IsDown); \
+                        Input.Buttons[ID].IsDown = IsDown; \
+                    } 
+
         SDL_Event event;
         while(SDL_PollEvent(&event) > 0)
         {
@@ -109,6 +263,22 @@ int main()
                     }
                 } break;
 
+                case SDL_MOUSEBUTTONDOWN:
+                case SDL_MOUSEBUTTONUP:
+                {
+                    int IsDown = (event.type == SDL_MOUSEBUTTONDOWN) ? 1 : 0;
+
+                    if(event.button.button == SDL_BUTTON_LEFT) {
+                        Input.Buttons[BUTTON_MOUSE_LEFT].Changed = (IsDown != Input.Buttons[BUTTON_MOUSE_LEFT].IsDown);
+                        Input.Buttons[BUTTON_MOUSE_LEFT].IsDown = true;
+                    } else if(event.button.button == SDL_BUTTON_RIGHT) {
+                        Input.Buttons[BUTTON_MOUSE_RIGHT].Changed = (IsDown != Input.Buttons[BUTTON_MOUSE_RIGHT].IsDown);
+                        Input.Buttons[BUTTON_MOUSE_RIGHT].IsDown = true;
+                    } else {
+                        // NOTE: Other buttons were clicked
+                    }
+                } break;
+
                 case SDL_MOUSEMOTION:
                 {
                     Input.MouseP.X = event.motion.x;
@@ -124,19 +294,13 @@ int main()
                     int IsDown = (event.key.state == SDL_PRESSED);
                     int WasDown = (event.key.state == SDL_RELEASED);
 
-#define PROCESS_BUTTON(KEY, ID) \
-                    if(event.key.keysym.sym == KEY) \
-                    { \
-                        Input.Buttons[ID].Changed = (IsDown != Input.Buttons[ID].IsDown); \
-                        Input.Buttons[ID].IsDown = IsDown; \
-                    } 
                     
                     PROCESS_BUTTON(SDLK_LEFT, BUTTON_LEFT);
                     PROCESS_BUTTON(SDLK_RIGHT, BUTTON_RIGHT);
                     PROCESS_BUTTON(SDLK_UP, BUTTON_UP);
                     PROCESS_BUTTON(SDLK_DOWN, BUTTON_DOWN);
-                    PROCESS_BUTTON(SDLK_h, BUTTON_ACTION);
-                    PROCESS_BUTTON(SDLK_l, BUTTON_FAST);
+                    PROCESS_BUTTON(SDLK_ESCAPE, BUTTON_ACTION);
+                    // PROCESS_BUTTON(SDLK_l, BUTTON_FAST);
                 } break;
             }
         }
@@ -147,7 +311,7 @@ int main()
         RenderBuffer.Pitch = GlobalRenderBuffer.Pitch;
         RenderBuffer.Pixels = GlobalRenderBuffer.Pixels;
 
-        SimulateGame(&RenderBuffer, &Input, dt);
+        SimulateGame(GameMemory, &RenderBuffer, &Input, dt);
 
 
         SDL_UpdateTexture(GlobalRenderBuffer.Texture, 0, GlobalRenderBuffer.Pixels, GlobalRenderBuffer.Pitch);
@@ -165,5 +329,6 @@ int main()
         dt = (real64)(CurrentTime - LastTime)/Frequency;
         LastTime = CurrentTime;
     }
+
 
 }
