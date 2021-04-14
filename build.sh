@@ -1,4 +1,5 @@
 CFLAGS="-g -fdiagnostics-absolute-paths"
+CFLAGS="${CFLAGS} -DPROFILING=1"
 
 IGNORES="-Wno-c++11-compat-deprecated-writable-strings"
 

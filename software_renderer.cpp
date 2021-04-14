@@ -1,4 +1,3 @@
-
 #include "game.h"
 
 real32 Scale = 0.01;
@@ -110,12 +109,15 @@ DrawRectInPixels(game_render_buffer *Buffer, float DesiredStartX, float DesiredS
     }
 }
 
-
 void
-DrawRect(game_render_buffer *Buffer, v2 Position, v2 Size, u32 Color)
+DrawRect(game_render_buffer *Buffer, v2 CameraP, v2 Position, v2 Size, u32 Color)
 {
+    ProfilerStart(PROFITEM_DRAW_RECT);
+
     real32 AspectMultiplier = CalculateAspectMultiplier(Buffer);
     real32 StepSize = Scale * AspectMultiplier;
+
+    Position = Position + CameraP;
 
     Size.X     *= StepSize;
     Size.Y     *= StepSize;
@@ -130,13 +132,19 @@ DrawRect(game_render_buffer *Buffer, v2 Position, v2 Size, u32 Color)
     float SizeY = Size.Y;
 
     DrawRectInPixels(Buffer, X0, Y0, SizeX, SizeY, Color);
+
+    ProfilerEnd(PROFITEM_DRAW_RECT);
 }
 
 void
-DrawRectAlpha(game_render_buffer *Buffer, v2 Position, v2 Size, u32 Color, real32 Alpha)
+DrawRectAlpha(game_render_buffer *Buffer, v2 CameraP, v2 Position, v2 Size, u32 Color, real32 Alpha)
 {
+    ProfilerStart(PROFITEM_DRAW_RECT_ALPHA);
+
     real32 AspectMultiplier = CalculateAspectMultiplier(Buffer);
     real32 StepSize = Scale * AspectMultiplier;
+
+    Position = Position + CameraP;
 
     Size.X     *= StepSize;
     Size.Y     *= StepSize;
@@ -162,13 +170,17 @@ DrawRectAlpha(game_render_buffer *Buffer, v2 Position, v2 Size, u32 Color, real3
     // DrawRectInPixels(Buffer, X0, Y0+SizeY, SizeY, 1.0f, Color, YEndAlpha);
 
     DrawRectInPixels(Buffer, X0, Y0, SizeX, SizeY, Color, Alpha);
+
+    ProfilerEnd(PROFITEM_DRAW_RECT_ALPHA);
 }
 
 void
-DrawRectRotated(game_render_buffer *Buffer, v2 Position, v2 Size, u32 SrcColor, real32 Alpha, real32 Angle)
+DrawRectRotated(game_render_buffer *Buffer, v2 CameraP, v2 Position, v2 Size, u32 SrcColor, real32 Alpha, real32 Angle)
 {
     real32 AspectMultiplier = CalculateAspectMultiplier(Buffer);
     real32 StepSize = Scale * AspectMultiplier;
+
+    Position = Position + CameraP;
 
     Size.X     *= StepSize;
     Size.Y     *= StepSize;
@@ -258,6 +270,7 @@ typedef struct {
     char data[CHAR_COLUMN_COUNT][CHAR_ROW_LENGTH];
 } character;
 
+
 character AllChars[256] = {};
 character Digits[] = {
     {
@@ -297,8 +310,8 @@ character Digits[] = {
         "_111_",
     },
     {
-        "_1__1",
-        "_1__1",
+        "1___1",
+        "1___1",
         "1___1",
         "11111",
         "____1",
@@ -353,6 +366,298 @@ character Digits[] = {
 };
 
 
+character CharactersCaps[] = {
+    {
+        "_111_",
+        "1___1",
+        "1___1",
+        "1___1",
+        "11111",
+        "1___1",
+        "1___1",
+    },
+    {
+        "1111_",
+        "1___1",
+        "1___1",
+        "1111_",
+        "1___1",
+        "1___1",
+        "1111_",
+    },
+    {
+        "_111_",
+        "1___1",
+        "1____",
+        "1____",
+        "1____",
+        "1___1",
+        "_111_",
+    },
+    {
+        "1111_",
+        "1___1",
+        "1___1",
+        "1___1",
+        "1___1",
+        "1___1",
+        "1111_",
+    },
+    {
+        "11111",
+        "1____",
+        "1____",
+        "1111_",
+        "1____",
+        "1____",
+        "11111",
+    },
+    {
+        "11111",
+        "1____",
+        "1____",
+        "1111_",
+        "1____",
+        "1____",
+        "1____",
+    },
+    {
+        "_111_",
+        "1___1",
+        "1____",
+        "1_111",
+        "1___1",
+        "1___1",
+        "_111_",
+    },
+    {
+        "1___1",
+        "1___1",
+        "1___1",
+        "11111",
+        "1___1",
+        "1___1",
+        "1___1",
+    },
+    {
+        "11111",
+        "__1__",
+        "__1__",
+        "__1__",
+        "__1__",
+        "__1__",
+        "11111",
+    },
+    {
+        "____1",
+        "____1",
+        "____1",
+        "____1",
+        "1___1",
+        "1___1",
+        "_111_",
+    },
+    {
+        "1___1",
+        "1__1_",
+        "1_1__",
+        "11___",
+        "1_1__",
+        "1__1_",
+        "1___1",
+    },
+    {
+        "1____",
+        "1____",
+        "1____",
+        "1____",
+        "1____",
+        "1____",
+        "11111",
+    },
+    {
+        "1___1",
+        "11_11",
+        "1_1_1",
+        "1___1",
+        "1___1",
+        "1___1",
+        "1___1",
+    },
+    {
+        "1___1",
+        "1___1",
+        "11__1",
+        "1_1_1",
+        "1__11",
+        "1___1",
+        "1___1",
+    },
+    {
+        "_111_",
+        "1___1",
+        "1___1",
+        "1___1",
+        "1___1",
+        "1___1",
+        "_111_",
+    },
+    {
+        "1111_",
+        "1___1",
+        "1___1",
+        "1111_",
+        "1____",
+        "1____",
+        "1____",
+    },
+    {
+        "_111_",
+        "1___1",
+        "1___1",
+        "1___1",
+        "1_1_1",
+        "1__1_",
+        "_11_1",
+    },
+    {
+        "1111_",
+        "1___1",
+        "1___1",
+        "1111_",
+        "1___1",
+        "1___1",
+        "1___1",
+    },
+    {
+        "_111_",
+        "1___1",
+        "1____",
+        "_111_",
+        "____1",
+        "1___1",
+        "_111_",
+    },
+    {
+        "11111",
+        "__1__",
+        "__1__",
+        "__1__",
+        "__1__",
+        "__1__",
+        "__1__",
+    },
+    {
+        "1___1",
+        "1___1",
+        "1___1",
+        "1___1",
+        "1___1",
+        "1___1",
+        "_111_",
+    },
+    {
+        "1___1",
+        "1___1",
+        "1___1",
+        "1___1",
+        "_1_1_",
+        "_1_1_",
+        "__1__",
+    },
+    {
+        "1___1",
+        "1___1",
+        "1___1",
+        "1_1_1",
+        "1_1_1",
+        "11_11",
+        "1___1",
+    },
+    {
+        "1___1",
+        "1___1",
+        "_1_1_",
+        "__1__",
+        "_1_1_",
+        "1___1",
+        "1___1",
+    },
+    {
+        "1___1",
+        "1___1",
+        "_1_1_",
+        "__1__",
+        "__1__",
+        "__1__",
+        "__1__",
+    },
+    {
+        "11111",
+        "____1",
+        "___1_",
+        "__1__",
+        "_1___",
+        "1____",
+        "11111",
+    },
+
+    {
+        "_____",
+        "_____",
+        "_____",
+        "11111",
+        "_____",
+        "_____",
+        "_____",
+    },
+    {
+        "_____",
+        "____1",
+        "___1_",
+        "__1__",
+        "_1___",
+        "1____",
+        "_____",
+    },
+    {
+        "_____",
+        "_____",
+        "_____",
+        "_____",
+        "_____",
+        "_____",
+        "__1__",
+    },
+    {
+        "_____",
+        "_____",
+        "_____",
+        "_____",
+        "_____",
+        "_____",
+        "11111",
+    },
+};
+
+
+inline u32 
+GetCharIndex(char Character) {
+    u32 SpecialCharBase = 'Z' - 'A' + 1;
+    u32 Result = 0; 
+
+    if(Character - 'A' < SpecialCharBase) {
+        Result = Character - 'A';
+    } else {
+        if(Character == '-')  { Result = SpecialCharBase + 0;}
+        if(Character == '/')  { Result = SpecialCharBase + 1;}
+        if(Character == '.')  { Result = SpecialCharBase + 2;}
+        if(Character == '_')  { Result = SpecialCharBase + 3;}
+    }
+
+    return Result;
+}
+
 
 u32
 CalculateDigitCount(s32 Number) {
@@ -365,9 +670,109 @@ CalculateDigitCount(s32 Number) {
     return DigitCount;
 }
 
+// void
+// DrawCapsChar(game_render_buffer *Buffer, char RequestedChar, v2 P, real32 CharWidth, u32 Color) {
+//     real32 Size = CharWidth / (CHAR_ROW_LENGTH - 1); // TODO: Add variable to remove this -1
+//     real32 StartX = P.X;
+//     real32 StartY = P.Y;
+//     real32 Offset = 0.0;
+//
+//     s32 TestCharIndex = GetCharIndex(RequestedChar);
+//     s32 CharIndex = Clamp(0, TestCharIndex, ARRAY_COUNT(CharactersCaps) - 1);
+//     character CharCaps = CharactersCaps[CharIndex];
+//
+//     for(int YIndex = 0; YIndex < ARRAY_COUNT(CharCaps.data); YIndex++) {
+//         for(int XIndex = 0; XIndex < (CHAR_ROW_LENGTH-1); XIndex++) {
+//             char Value = CharCaps.data[YIndex][XIndex];
+//             if(Value == '1')
+//             {
+//                 real32 X = StartX + (XIndex * Size) + (XIndex * Offset);
+//                 real32 Y = StartY + (YIndex * Size) + (YIndex * Offset);
+//                 DrawRect(Buffer, V2(X, Y), V2(Size, Size), Color);
+//             }
+//         }
+//     }
+// }
+
+
+u32 
+Lerp(u32 A, u32 B, real32 t) {
+    // u32 Result = (A * t) + (B * (1 - t));
+    u32 Result = (1 - t) * A + B * t;
+    return Result;
+}
+
+u32
+LerpColor(u32 StartColor, u32 EndColor, real32 t) {
+    u32 Result = 0;
+
+    u8 StartR = StartColor >> 16;
+    u8 StartG = StartColor >> 8;
+    u8 StartB = StartColor >> 0;
+
+    u8 EndR = EndColor >> 16;
+    u8 EndG = EndColor >> 8;
+    u8 EndB = EndColor >> 0;
+
+    u8 ResultR = Lerp(StartR, EndR, t);
+    u8 ResultG = Lerp(StartG, EndG, t);
+    u8 ResultB = Lerp(StartB, EndB, t);
+
+    Result = (ResultR << 16) |
+        (ResultG << 8) |
+        (ResultB << 0);
+
+    return Result;
+}
+
+v2
+DrawCapsCharGradient(game_render_buffer *Buffer, char RequestedChar, v2 CameraP, v2 P, real32 CharWidth, 
+        u32 StartColor, u32 EndColor, real32 GradientPositionReal) 
+{
+    P = P + CameraP;
+
+    real32 Size = CharWidth / (CHAR_ROW_LENGTH - 1); // TODO: Add variable to remove this -1
+    real32 StartX = P.X;
+    real32 StartY = P.Y;
+    real32 Offset = 0.0;
+
+    int GradientPosition = round(GradientPositionReal * (float)CHAR_COLUMN_COUNT);
+
+    s32 TestCharIndex = GetCharIndex(RequestedChar);
+    s32 CharIndex = Clamp(0, TestCharIndex, ARRAY_COUNT(CharactersCaps) - 1);
+    character CharCaps = CharactersCaps[CharIndex];
+
+    v2 DrawPResult = {
+        P.X + (Size *ARRAY_COUNT(CharCaps.data)),  
+        P.Y
+    };
+
+    for(int YIndex = 0; YIndex < ARRAY_COUNT(CharCaps.data); YIndex++) {
+
+        int SomeIndex = YIndex - GradientPosition;
+        if(SomeIndex < 0) {
+            SomeIndex = CHAR_COLUMN_COUNT + SomeIndex;
+        }
+        real32 t = (float)(SomeIndex + 1) / (float)CHAR_COLUMN_COUNT;
+        u32 Color = LerpColor(StartColor, EndColor, t);
+
+        for(int XIndex = 0; XIndex < (CHAR_ROW_LENGTH-1); XIndex++) {
+            char Value = CharCaps.data[YIndex][XIndex];
+            if(Value == '1')
+            {
+                real32 X = StartX + (XIndex * Size) + (XIndex * Offset);
+                real32 Y = StartY + (YIndex * Size) + (YIndex * Offset);
+                DrawRect(Buffer, CameraP, V2(X, Y), V2(Size, Size), Color);
+            }
+        }
+    }
+
+    // DrawRect(Buffer, DrawPResult, V2(1, 1), 0x000000);
+    return DrawPResult;
+}
 
 void
-DrawDigit(game_render_buffer *Buffer, char RequestedDigit, v2 P, real32 CharWidth, u32 Color) {
+DrawDigit(game_render_buffer *Buffer, char RequestedDigit, v2 CameraP, v2 P, real32 CharWidth, u32 Color) {
     real32 Size = CharWidth / (CHAR_ROW_LENGTH - 1); // TODO: Add variable to remove this -1
     real32 StartX = P.X;
     real32 StartY = P.Y;
@@ -387,16 +792,17 @@ DrawDigit(game_render_buffer *Buffer, char RequestedDigit, v2 P, real32 CharWidt
             {
                 real32 X = StartX + (XIndex * Size) + (XIndex * Offset);
                 real32 Y = StartY + (YIndex * Size) + (YIndex * Offset);
-                DrawRect(Buffer, V2(X, Y), V2(Size, Size), Color);
+                DrawRect(Buffer, CameraP, V2(X, Y), V2(Size, Size), Color);
             }
         }
     }
 }
 
-void 
-DrawNumber(game_render_buffer *Buffer, s32 Number, v2 P, real32 Size, u32 Color) {
+v2 
+DrawNumber(game_render_buffer *Buffer, s32 Number, v2 CameraP, v2 P, real32 Size, u32 Color) {
     s32 IterateNumber = Number;
-    u32 DigitCount = CalculateDigitCount(Number);
+    u32 InitialDigitCount = CalculateDigitCount(Number);
+    u32 DigitCount = InitialDigitCount;
 
     bool32 IsNegative = Number < 0;
 
@@ -405,9 +811,11 @@ DrawNumber(game_render_buffer *Buffer, s32 Number, v2 P, real32 Size, u32 Color)
     real32 Offset = (Size / (CHAR_ROW_LENGTH - 1));
     real32 CharWidthWithRightOffset = Size + Offset;
 
+    v2 NextP = {StartX, StartY};
+
     bool32 FirstPass = true;
     if(IsNegative) {
-        DrawRect(Buffer, V2(StartX, StartY+1), V2(1, 0.4), Color);
+        DrawRect(Buffer, CameraP, V2(StartX, StartY+1), V2(1, 0.4), Color);
         StartX += 1;
         IterateNumber *= -1;
     }
@@ -417,17 +825,85 @@ DrawNumber(game_render_buffer *Buffer, s32 Number, v2 P, real32 Size, u32 Color)
 
         char Digit = IterateNumber % 10;
         IterateNumber /= 10;
-        real32 X = StartX + CharWidthWithRightOffset * (DigitCount - 1);
-        real32 Y = StartY;
+        // real32 X = StartX + CharWidthWithRightOffset * (DigitCount - 1);
+        // real32 Y = StartY;
 
-        DrawDigit(Buffer, Digit, V2(X, Y), Size, Color);
+        NextP.X =  StartX + CharWidthWithRightOffset * (DigitCount - 1);
+        NextP.Y = StartY;
+
+        DrawDigit(Buffer, Digit, CameraP, NextP, Size, Color);
+        // DrawRect(Buffer, CameraP, NextP, V2(1, 1), 0x000000);
 
         DigitCount--;
     }
+
+    NextP.X = StartX + CharWidthWithRightOffset * (InitialDigitCount);
+    NextP.Y = StartY;
+
+    // DrawRect(Buffer, CameraP, V2(StartX, StartY-2), V2(1, 1), 0xff00ff);
+    // DrawRect(Buffer, CameraP, NextP, V2(1, 1), 0x000000);
+
+    return NextP;
+}
+
+v2
+DrawNumberReal(game_render_buffer *Buffer, real32 Number, v2 CameraP, v2 P, real32 Size, u32 Color)
+{
+    s32 WholePart = (s32)Number;
+    s32 FractionPart = (s32)(100 * ((double)Number - (double)WholePart));
+
+    v2 NextP = DrawNumber(Buffer, WholePart, CameraP, P, Size, 0xffffffff);
+    NextP.X -= (Size / 4.5);
+    NextP = DrawCapsCharGradient(Buffer, '.', CameraP, NextP, Size, Color, Color, 0.0f);
+    NextP.X -= (Size / 2.5);
+    NextP = DrawNumber(Buffer, FractionPart, CameraP, NextP, Size, 0xffffffff);
+
+    return NextP;
+}
+
+// void 
+// DrawString(game_render_buffer *Buffer, char* String, v2 P, real32 Size, u32 Color) {
+//     u32 CharCount = strlen(String);
+//
+//     v2 NextCharP = {P.X, P.Y};
+//
+//     for(int CharIndex = 0; CharIndex < CharCount; CharIndex++) {
+//         char Character = String[CharIndex];
+//         DrawCapsChar(Buffer, Character, NextCharP, Size, 0xffffff);
+//
+//         NextCharP.X += Size + (Size / 8);
+//     }
+// }
+
+v2 
+DrawStringGradient(game_render_buffer *Buffer, char* String, v2 CameraP, v2 P, real32 Size, 
+        u32 StartColor, u32 EndColor, real32 GradientPosition) {
+
+    u32 CharCount = strlen(String);
+
+    v2 NextCharP = {P.X, P.Y};
+
+    for(int CharIndex = 0; CharIndex < CharCount; CharIndex++) {
+        char Character = String[CharIndex];
+        if(Character == '\n') { 
+            NextCharP.X = P.X;
+            NextCharP.Y += Size*1.9;
+            continue;
+        }
+
+        DrawCapsCharGradient(Buffer, Character, CameraP, NextCharP, Size, StartColor, EndColor, GradientPosition);
+
+        NextCharP.X += Size + (Size / 8);
+    }
+    // NextCharP.Y -= 2;
+    // DrawRect(Buffer, NextCharP, V2(1, 1), 0xff00ff);
+
+    return NextCharP;
 }
 
 void 
-DrawBitmap(game_render_buffer *Buffer, bitmap *Bitmap, v2 Position, v2 Size) {
+DrawBitmap(game_render_buffer *Buffer, bitmap *Bitmap, v2 CameraP, v2 Position, v2 Size) {
+    Position = Position + CameraP;
     real32 AspectMultiplier = CalculateAspectMultiplier(Buffer);
     real32 StepSize = Scale * AspectMultiplier;
 
@@ -449,13 +925,13 @@ DrawBitmap(game_render_buffer *Buffer, bitmap *Bitmap, v2 Position, v2 Size) {
     int EndY   = Clamp(0, Y0 + SizeY, Buffer->Height);
 
     for(int YIndex = StartY; YIndex <= EndY; YIndex++) {
-        real32 a_y = ((float)YIndex - StartY) / (float)SizeY;
-        s32 b_y = a_y * Bitmap->Height;
+        real32 YProportion = ((float)YIndex - StartY) / (float)SizeY;
+        s32 BitmapYIndex = YProportion * (Bitmap->Height - 1);
         for(int XIndex = StartX; XIndex <= EndX; XIndex++) { 
-            real32 a_x = ((float)XIndex - StartX) / (float)SizeX;
-            s32 b_x = a_x * Bitmap->Width;
+            real32 XProportion = ((float)XIndex - StartX) / (float)SizeX;
+            s32 BitmapXIndex = XProportion * (Bitmap->Width - 1);
             
-            u32 *SrcPixel = (u32 *)Bitmap->Memory + (b_y * Bitmap->Width + b_x);
+            u32 *SrcPixel = (u32 *)Bitmap->Memory + (BitmapYIndex * Bitmap->Width + BitmapXIndex);
             u8 AlphaChannel = *SrcPixel >> 24 & 0xFF;
             u32 *DestPixel = (u32 *)Buffer->Pixels + YIndex * Buffer->Width + XIndex;
 

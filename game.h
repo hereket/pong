@@ -38,6 +38,7 @@ typedef struct {
     u8 *Memory;
     u32 Width;
     u32 Height;
+    real32 XOverYProportion;
 } bitmap;
 
 

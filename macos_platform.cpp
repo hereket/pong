@@ -5,11 +5,19 @@
 #include <stdio.h>
 #include "utils.cpp"
 
+#include "math.cpp"
+#include "game.h"
+#include "profiler.h"
+
+#include "software_renderer.cpp"
+
+#include "profiler.cpp"
+
 #include "platform.h"
 
-#include "math.cpp"
 #include "game.cpp"
 
+#include <mach/mach_time.h>
 
 
 
@@ -24,6 +32,7 @@ struct {
 global_variable macos_render_buffer GlobalRenderBuffer;
 
 global_variable int GlobalWindowIsFocused;
+global_variable double GlobalFrequencyCounter;
 
 void
 MACResizeTexture(SDL_Renderer *Renderer,  macos_render_buffer *Buffer, int Width, int Height)
@@ -42,6 +51,30 @@ MACResizeTexture(SDL_Renderer *Renderer,  macos_render_buffer *Buffer, int Width
 
     Buffer->Texture = SDL_CreateTexture(Renderer, SDL_PIXELFORMAT_ARGB8888, 
                                         SDL_TEXTUREACCESS_STREAMING, Width, Height);
+}
+
+real32
+DEBUGPlatformGetTimeElapsedMilliseconds(real32 OldTimeNanosecods) 
+{
+    u64 Ticks = mach_absolute_time();
+    u64 CurrentNanoseconds = Ticks * GlobalFrequencyCounter;
+    u64 TimeElapsedNanoseconds = CurrentNanoseconds - OldTimeNanosecods;
+    // double TimeElapsedMilliseconds = (double)TimeElapsedNanoseconds / 1000000000;
+    double TimeElapsedMilliseconds = (double)TimeElapsedNanoseconds / 1000000;
+    return TimeElapsedMilliseconds;
+
+}
+
+
+real32 
+DEBUGPlatformGetPerfCounter() 
+{
+    // clock_gettime_nsec_np(CLOCK_UPTIME_RAW) * 1000;
+    
+    u64 Ticks = mach_absolute_time();
+    u64 Nanoseconds = Ticks * GlobalFrequencyCounter;
+    return Nanoseconds;
+
 }
 
 DEBUG_PLATFORM_READ_ENTIRE_FILE(ReadEntireFile) 
@@ -101,19 +134,19 @@ DEBUG_PLATFORM_PLAY_WAV(PlayWav)
 
     bool32 AddedTrack = false;
 
-    for(s32 i = 0; i < PLAYING_SOUNDS_COUNT; i++) {
-        loaded_audio OldTrack = PlayingSounds[i];
-        if(!OldTrack.IsPlaying) {
-            PlayingSounds[i] = Track;
-            AddedTrack = true;
-            break;
-        }
-    }
-
-    if(!AddedTrack) {
-        printf("Couldn't add track. Probably no more empty slots left.");
-    }
-
+    // for(s32 i = 0; i < PLAYING_SOUNDS_COUNT; i++) {
+    //     loaded_audio OldTrack = PlayingSounds[i];
+    //     if(!OldTrack.IsPlaying) {
+    //         PlayingSounds[i] = Track;
+    //         AddedTrack = true;
+    //         break;
+    //     }
+    // }
+    //
+    // if(!AddedTrack) {
+    //     printf("Couldn't add track. Probably no more empty slots left.\n");
+    // }
+    //
 }
 
 DEBUG_PLATFORM_LOAD_WAV(LoadWav)
@@ -162,6 +195,9 @@ void AudioCallback(void *UserData, u8 *Stream, int RequestedBytes)
         }
     }
 }
+
+global_variable real32 ListOfDt[128];
+global_variable int DtIndex;
 
 
 int main()
@@ -218,15 +254,27 @@ int main()
 
     game_input Input = {};
 
-    u64 Frequency = SDL_GetPerformanceFrequency();
-    u64 LastTime = SDL_GetPerformanceCounter();
+    // u64 Frequency = SDL_GetPerformanceFrequency();
+    // u64 LastTime = SDL_GetPerformanceCounter();
+    u64 LastTime = DEBUGPlatformGetPerfCounter();
     real32 dt = 0;
+
+    {
+        mach_timebase_info_data_t info = {};
+        mach_timebase_info(&info);
+        GlobalFrequencyCounter = (double)info.numer / (double)info.denom;
+    }
+
 
     SDL_ShowCursor(SDL_DISABLE);
 
     bool32 KeepWindowOpen = 1;
     while(KeepWindowOpen)
     {
+        ProfilerClearData();
+
+        ProfilerStart(PROFITEM_INPUT);
+
         for(int Index = 0; Index < BUTTON_COUNT; Index++) {
             Input.Buttons[Index].Changed = false;
         }
@@ -311,24 +359,36 @@ int main()
         RenderBuffer.Pitch = GlobalRenderBuffer.Pitch;
         RenderBuffer.Pixels = GlobalRenderBuffer.Pixels;
 
+        ProfilerEnd(PROFITEM_INPUT);
+
+        ProfilerStart(PROFITEM_GAME);
+
         SimulateGame(GameMemory, &RenderBuffer, &Input, dt);
 
+        ProfilerEnd(PROFITEM_GAME);
+
+        RenderProfiler(&RenderBuffer, dt);
+
+
+        ProfilerStart(PROFITEM_FLIP);
 
         SDL_UpdateTexture(GlobalRenderBuffer.Texture, 0, GlobalRenderBuffer.Pixels, GlobalRenderBuffer.Pitch);
 
         SDL_RenderCopy(Renderer, GlobalRenderBuffer.Texture, NULL, 0);
         SDL_RenderPresent(Renderer);
 
-        u64 CurrentTime = SDL_GetPerformanceCounter();
+        // u64 CurrentTime = SDL_GetPerformanceCounter();
+        u64 CurrentTime = DEBUGPlatformGetPerfCounter();
 
         if(GlobalWindowIsFocused) {
             SDL_WarpMouseInWindow(Window, WindowCenterX, WindowCenterY);
         }
 
         /* real64 dt = (real64)(CurrentTime - LastTime)/Frequency * 1000; */
-        dt = (real64)(CurrentTime - LastTime)/Frequency;
+        // dt = (real64)(CurrentTime - LastTime)/Frequency;
+        dt = DEBUGPlatformGetTimeElapsedMilliseconds(LastTime) / 1000;
         LastTime = CurrentTime;
+
+        ProfilerStart(PROFITEM_FLIP);
     }
-
-
 }

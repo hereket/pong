@@ -21,6 +21,7 @@ void DrawConsoleMessages(game_render_buffer *Buffer, arena *Arena, float dt) {
     real32 StartY = -(Arena->Size.Y/2) + 10;
 
     v2 P = {StartX, StartY};
+    v2 CameraP = {0, 0};
 
     for(u32 i = 0; i < ARRAY_COUNT(GlobalMessageList); i++) {
         s32 Index = (GlobalMessageIndex - 1) - i;
@@ -33,7 +34,7 @@ void DrawConsoleMessages(game_render_buffer *Buffer, arena *Arena, float dt) {
         s32 Value = Message->Value;
 
         P.Y += 2.7;
-        DrawNumber(Buffer, Value, P, 1.5, 0xffffffff);
+        DrawNumber(Buffer, Value, CameraP, P, 1.5, 0xffffffff);
     }
 }
 
