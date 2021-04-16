@@ -53,29 +53,34 @@ MACResizeTexture(SDL_Renderer *Renderer,  macos_render_buffer *Buffer, int Width
                                         SDL_TEXTUREACCESS_STREAMING, Width, Height);
 }
 
-real32
-DEBUGPlatformGetTimeElapsedMilliseconds(real32 OldTimeNanosecods) 
-{
-    u64 Ticks = mach_absolute_time();
-    u64 CurrentNanoseconds = Ticks * GlobalFrequencyCounter;
-    u64 TimeElapsedNanoseconds = CurrentNanoseconds - OldTimeNanosecods;
-    // double TimeElapsedMilliseconds = (double)TimeElapsedNanoseconds / 1000000000;
-    double TimeElapsedMilliseconds = (double)TimeElapsedNanoseconds / 1000000;
-    return TimeElapsedMilliseconds;
-
-}
-
-
-real32 
-DEBUGPlatformGetPerfCounter() 
+inline real32 
+DEBUGPlatformGetTimeNanoseconds() 
 {
     // clock_gettime_nsec_np(CLOCK_UPTIME_RAW) * 1000;
     
     u64 Ticks = mach_absolute_time();
     u64 Nanoseconds = Ticks * GlobalFrequencyCounter;
     return Nanoseconds;
+}
+
+
+inline real32
+DEBUGPlatformGetTimeElapsedNanoseconds(real32 OldTimeNanosecods) 
+{
+    u64 CurrentNanoseconds = DEBUGPlatformGetTimeNanoseconds();
+    u64 TimeElapsedNanoseconds = CurrentNanoseconds - OldTimeNanosecods;
+    return TimeElapsedNanoseconds;
 
 }
+
+
+real32
+DEBUGPlatformGetTimeElapsedMilliseconds(real32 Milliseconds) 
+{
+    double TimeElapsedMilliseconds = DEBUGPlatformGetTimeElapsedNanoseconds(Milliseconds * 1000000) / 1000000;
+    return TimeElapsedMilliseconds;
+}
+
 
 DEBUG_PLATFORM_READ_ENTIRE_FILE(ReadEntireFile) 
 {
@@ -256,14 +261,17 @@ int main()
 
     // u64 Frequency = SDL_GetPerformanceFrequency();
     // u64 LastTime = SDL_GetPerformanceCounter();
-    u64 LastTime = DEBUGPlatformGetPerfCounter();
-    real32 dt = 0;
+
+    real32 dt = 0.016;
 
     {
         mach_timebase_info_data_t info = {};
         mach_timebase_info(&info);
         GlobalFrequencyCounter = (double)info.numer / (double)info.denom;
     }
+
+
+    u64 LastTime = DEBUGPlatformGetTimeNanoseconds();
 
 
     SDL_ShowCursor(SDL_DISABLE);
@@ -378,7 +386,7 @@ int main()
         SDL_RenderPresent(Renderer);
 
         // u64 CurrentTime = SDL_GetPerformanceCounter();
-        u64 CurrentTime = DEBUGPlatformGetPerfCounter();
+        u64 CurrentTime = DEBUGPlatformGetTimeNanoseconds();
 
         if(GlobalWindowIsFocused) {
             SDL_WarpMouseInWindow(Window, WindowCenterX, WindowCenterY);
@@ -386,9 +394,12 @@ int main()
 
         /* real64 dt = (real64)(CurrentTime - LastTime)/Frequency * 1000; */
         // dt = (real64)(CurrentTime - LastTime)/Frequency;
-        dt = DEBUGPlatformGetTimeElapsedMilliseconds(LastTime) / 1000;
+#define BILLION 1000000000
+        dt = DEBUGPlatformGetTimeElapsedNanoseconds(LastTime) / BILLION;
+        // dt = 0.016;
+
         LastTime = CurrentTime;
 
-        ProfilerStart(PROFITEM_FLIP);
+        ProfilerEnd(PROFITEM_FLIP);
     }
 }

@@ -1,6 +1,6 @@
 #if PROFILING
 
-real32 DEBUGPlatformGetPerfCounter();
+real32 DEBUGPlatformGetTimeNanoseconds();
 real32 DEBUGPlatformGetTimeElapsedMilliseconds(real32 Time);
 
 global_variable perf_data GlobalProfilingItems[PROFITEM__COUNT];
@@ -32,7 +32,7 @@ void
 ProfilerStart(profiling_item Item) {
     perf_data *Data = GlobalProfilingItems + Item;
     Data->HitCount++;
-    Data->BeginTime = DEBUGPlatformGetPerfCounter();
+    Data->BeginTime = DEBUGPlatformGetTimeNanoseconds();
 }
 
 void 

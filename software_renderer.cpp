@@ -695,35 +695,6 @@ CalculateDigitCount(s32 Number) {
 // }
 
 
-u32 
-Lerp(u32 A, u32 B, real32 t) {
-    // u32 Result = (A * t) + (B * (1 - t));
-    u32 Result = (1 - t) * A + B * t;
-    return Result;
-}
-
-u32
-LerpColor(u32 StartColor, u32 EndColor, real32 t) {
-    u32 Result = 0;
-
-    u8 StartR = StartColor >> 16;
-    u8 StartG = StartColor >> 8;
-    u8 StartB = StartColor >> 0;
-
-    u8 EndR = EndColor >> 16;
-    u8 EndG = EndColor >> 8;
-    u8 EndB = EndColor >> 0;
-
-    u8 ResultR = Lerp(StartR, EndR, t);
-    u8 ResultG = Lerp(StartG, EndG, t);
-    u8 ResultB = Lerp(StartB, EndB, t);
-
-    Result = (ResultR << 16) |
-        (ResultG << 8) |
-        (ResultB << 0);
-
-    return Result;
-}
 
 v2
 DrawCapsCharGradient(game_render_buffer *Buffer, char RequestedChar, v2 CameraP, v2 P, real32 CharWidth, 
@@ -924,23 +895,17 @@ DrawBitmap(game_render_buffer *Buffer, bitmap *Bitmap, v2 CameraP, v2 Position, 
     int EndX   = Clamp(0, X0 + SizeX, Buffer->Width);
     int EndY   = Clamp(0, Y0 + SizeY, Buffer->Height);
 
-    for(int YIndex = StartY; YIndex <= EndY; YIndex++) {
-        real32 YProportion = ((float)YIndex - StartY) / (float)SizeY;
+    for(int YIndex = StartY; YIndex < EndY; YIndex++) {
+        real32 YProportion = ((float)YIndex - Y0) / (float)SizeY;
         s32 BitmapYIndex = YProportion * (Bitmap->Height - 1);
-        for(int XIndex = StartX; XIndex <= EndX; XIndex++) { 
-            real32 XProportion = ((float)XIndex - StartX) / (float)SizeX;
+
+        for(int XIndex = StartX; XIndex < EndX; XIndex++) { 
+            real32 XProportion = ((float)XIndex - X0) / (float)SizeX;
             s32 BitmapXIndex = XProportion * (Bitmap->Width - 1);
             
             u32 *SrcPixel = (u32 *)Bitmap->Memory + (BitmapYIndex * Bitmap->Width + BitmapXIndex);
             u8 AlphaChannel = *SrcPixel >> 24 & 0xFF;
             u32 *DestPixel = (u32 *)Buffer->Pixels + YIndex * Buffer->Width + XIndex;
-
-            // printf("%d %d %d %d\n", 
-            //         *SrcPixel >> 24 & 0xFF,
-            //         *SrcPixel >> 16 & 0xFF,
-            //         *SrcPixel >> 8 & 0xFF,
-            //         *SrcPixel >> 0 & 0xFF
-            //         );
 
             if(AlphaChannel < 255) {
                 real32 Alpha = (real32)AlphaChannel / 255;

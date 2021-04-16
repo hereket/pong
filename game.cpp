@@ -42,6 +42,13 @@ struct {
 struct {
     v2 P;
     v2 Size;
+
+    struct {
+        real32 Left;
+        real32 Right;
+        real32 Top;
+        real32 Bottom;
+    } Margin;
 } typedef arena;
 
 typedef enum {
@@ -136,6 +143,9 @@ typedef struct {
     bitmap PowerupTripleShot;
     bitmap PowerupComet;
 
+    bitmap LeftCurtain;
+    bitmap RightCurtain;
+
     bitmap ForceField;
     bitmap LogoDark;
     bitmap LogoLight;
@@ -144,6 +154,24 @@ typedef struct {
 typedef struct {
     image_assets Images;
 } assets;
+
+
+typedef struct {
+    v2 P;
+    v2 VisualP;
+    v2 dP;
+    v2 Size;
+    v2 Color;
+} wall;
+
+typedef struct {
+    wall Left;
+    wall Top;
+    wall Right;
+} arena_walls;
+
+global_variable arena_walls ArenaWalls;
+
 
 global_variable game_levels_state GlobalGameLevelState;
 global_variable v2 GlobalCameraP;
@@ -171,7 +199,6 @@ SaveGameFile(game_memory GameMemory)
 {
     s32 Size = sizeof(game_levels_state);
     s64 BytesWritten = GameMemory.DEBUGPlatformWriteEntireFile(GameSafeFilename, (char *)&GlobalGameLevelState, Size);
-    printf("Write %lld bytes\n", BytesWritten);
 }
 
 void
@@ -229,8 +256,19 @@ global_variable loaded_audio sound2;
 global_variable loaded_audio sound3;
 
 global_variable game_mode GlobalGameMode;
+global_variable real32 GlobalLevelTransitionTime;
+global_variable bool32 TransitionStarted;
 
 
+
+void
+AddScreenshake(real32 Amplitude)
+{
+    GlobalCameraDP = V2( 
+        RandomUniformRange(-Amplitude, Amplitude),
+        RandomUniformRange(-Amplitude, Amplitude)
+    );
+}
 
 
 void
@@ -278,8 +316,8 @@ void
 InitBall(ball *Ball) 
 {
     Ball->BaseSpeed = GlobalBallBaseSpeed;
-    Ball->P = V2(10, -50);
-    Ball->dP = V2(0.0, -Ball->BaseSpeed);
+    Ball->P = V2(0, -50);
+    Ball->dP = V2(0.0, Ball->BaseSpeed);
     Ball->Size = V2(1.5, 1.5);
     Ball->Color = 0x00FFFFFF;
     Ball->Flags |= BALL_ACTIVE;
@@ -314,22 +352,20 @@ StartGame(level Level)
 
     InitBall(&Balls[0]);
 
-    int ArenaWidth = 160;
-    int ArenaHeight = 100;
-    Arena.P = V2(0, 5);
-    Arena.Size = V2(ArenaWidth, ArenaHeight);
 
     Paddle.Size = V2(20, 4);
     Paddle.VisualSize = V2(Paddle.Size.X, Paddle.Size.Y);
 
-    Paddle.P.Y = 45;
+    Paddle.P.Y = Arena.Margin.Bottom - 7;
     Paddle.Color = 0x0000ff00;
     Paddle.VisualP = V2(Paddle.P.X, Paddle.P.Y);
 
     s32 GlobalBlockIndex = 0;
 
-    float BlocksFullWidth = ArenaWidth - 10;
-    float BlocksFullHeight = ArenaHeight - 10;
+    // float BlocksFullWidth = Arena.Size.X - 10;
+    // float BlocksFullHeight = Arena.Size.Y - 10;
+    float BlocksFullWidth = Arena.Margin.Right - Arena.Margin.Left - 10;
+    float BlocksFullHeight = Arena.Margin.Top - Arena.Margin.Bottom - 10;
 
     BlockTotalCount = 0;
 
@@ -354,7 +390,7 @@ StartGame(level Level)
             real32 BlockSizeX = (BlocksFullWidth / BlockXCount) - BlockOffsetX;
 
             real32 StartX = -BlocksFullWidth/2 + ((BlockSizeX+BlockOffsetX)/2);
-            real32 StartY = -ArenaHeight/2 + 10;
+            real32 StartY = Arena.Margin.Top + 10;
 
             for(s32 Y = 0; Y < BlockYCount; Y++) {
                 for(s32 X = 0; X < BlockXCount; X++) {
@@ -417,7 +453,7 @@ StartGame(level Level)
             s32 YColorStep = 255 / BlockYCount;
             s32 XColorStep = 1;
 
-            float BlocksFullWidth = (ArenaWidth / 5);
+            float BlocksFullWidth = (Arena.Size.X / 5);
             real32 BlockSizeX = (BlocksFullWidth / BlockXCount);
 
             real32 FromCenterStartOffsetX = -(BlocksFullWidth / 2);
@@ -458,7 +494,7 @@ StartGame(level Level)
             s32 InvaderCountX = 5;
             s32 InvaderCountY = 3;
 
-            real32 InvadersTotalWidth = (ArenaWidth / 2);
+            real32 InvadersTotalWidth = (Arena.Size.X / 2);
             real32 WidthToHeightMultiplier = ((float)INVADER_COLUMN_CHAR_COUNT / (float)INVADER_ROW_CHAR_COUNT);
             real32 InvadersTotalHeight = InvadersTotalWidth * WidthToHeightMultiplier;
 
@@ -493,9 +529,12 @@ StartGame(level Level)
 
 internal void
 ChangeGameMode(game_memory GameMemory, game_mode GameMode) {
+    // AddScreenshake(50);
     GlobalGameMode = GameMode;
     SaveGameFile(GameMemory);
+
     if(GameMode == GAME_MODE_GAMEPLAY) {
+        GlobalLevelTransitionTime = 1.0f;
         StartGame(GlobalGameState.CurrentLevel);
     }
 }
@@ -750,18 +789,22 @@ void LoadPng(game_memory GameMemory, char *Filename, bitmap *Bitmap) {
 }
 
 void
-AddScreenshake(real32 Factor)
-{
-    GlobalCameraDP = V2( 
-        RandomUniformRange(-Factor, Factor),
-        RandomUniformRange(-Factor, Factor)
-    );
+UpdateWallPosition(wall *Wall, real32 dt) {
+    // TODO: Rework this
+    // wall *Wall = &ArenaWalls.Left;
+    real32 Time = 0.016;
+    v2 DistanceFromCenter = Wall->P - Wall->VisualP;
+
+    v2 Ddp = DistanceFromCenter * 1000 + DistanceFromCenter * 10;
+    Wall->dP = Wall->dP + Ddp * Time;
+    Wall->VisualP = Wall->VisualP + (Wall->dP * Time) + (Ddp * Time * Time * 0.5f);
 }
 
 
 void 
 SimulateGame(game_memory GameMemory, game_render_buffer *Buffer, game_input *Input, real32 dt)
 {
+    if(IS_PRESSED(Input, BUTTON_DOWN)) {dt /= 5;}
     if(!Initialized) {
         Initialized = true;
         GlobalGameState.CurrentLevel = LEVEL_01_NORMAL;
@@ -774,6 +817,9 @@ SimulateGame(game_memory GameMemory, game_render_buffer *Buffer, game_input *Inp
         LoadPng(GameMemory, "../data/commet.png", &GlobalAssets.Images.PowerupComet);
         LoadPng(GameMemory, "../data/force_field.png", &GlobalAssets.Images.ForceField);
 
+        LoadPng(GameMemory, "../data/left_curtain.png", &GlobalAssets.Images.LeftCurtain);
+        LoadPng(GameMemory, "../data/right_curtain.png", &GlobalAssets.Images.RightCurtain);
+
         LoadPng(GameMemory, "../data/logo_dark.png", &GlobalAssets.Images.LogoDark);
         LoadPng(GameMemory, "../data/log_light.png", &GlobalAssets.Images.LogoLight);
 
@@ -785,21 +831,70 @@ SimulateGame(game_memory GameMemory, game_render_buffer *Buffer, game_input *Inp
 
         LoadGameFile(GameMemory);
 
+        GlobalCameraP = V2(0, 0);
+        GlobalCameraDP = V2(0, 0);
+
+
+        Arena.P = V2(0, 0);
+        // Arena.Size = V2(160, 100);
+        Arena.Size = V2(180, 100);
+
+
+
+        ArenaWalls.Left.Size = V2(15, Arena.Size.Y + 10);
+        ArenaWalls.Right.Size = V2(15, Arena.Size.Y + 10);
+        ArenaWalls.Top.Size = V2(Arena.Size.X + 20, 15);
+
+        ArenaWalls.Left.P = V2(-0.5*Arena.Size.X, 0);
+        ArenaWalls.Right.P = V2(0.5*Arena.Size.X, 0);
+        ArenaWalls.Top.P = V2(0, -0.5*Arena.Size.Y);
+
+        ArenaWalls.Left.VisualP = ArenaWalls.Left.P;
+        ArenaWalls.Right.VisualP = ArenaWalls.Right.P;
+        ArenaWalls.Top.VisualP = ArenaWalls.Top.P;
+
+        Arena.Margin.Left = Arena.P.X - (0.5*Arena.Size.X) + (0.5*ArenaWalls.Left.Size.X);
+        Arena.Margin.Right = Arena.P.X + (0.5*Arena.Size.X) - (0.5*ArenaWalls.Right.Size.X);
+        Arena.Margin.Top = Arena.P.Y - (0.5*Arena.Size.Y) + (0.5*ArenaWalls.Top.Size.Y);
+        Arena.Margin.Bottom = Arena.P.Y + (0.5*Arena.Size.Y);
+
+        printf("%f\n", ArenaWalls.Top.Size.Y);
+
 
         ChangeGameMode(GameMemory, GAME_MODE_MENU);
         StartGame(GlobalGameState.CurrentLevel);
     }
 
+    u32 ColorArenaBg = 0xaa0000;
+
+
+    // NOTE: Wall movement
+    {
+        UpdateWallPosition(&ArenaWalls.Left, dt);
+        UpdateWallPosition(&ArenaWalls.Right, dt);
+        UpdateWallPosition(&ArenaWalls.Top, dt);
+    }
+
 
     // NOTE: Camera movement
     {
+        // real32 Time = dt;
+        // TODO: This is hack to remove visual errors due to variable dt. Think about this formula more.
+        real32 Time = 1.0f / 60.f;
         v2 ScreenCenter = {0, 0};
         v2 PFromCenter = ScreenCenter - GlobalCameraP;
 
         v2 Ddp = (PFromCenter * 1000.0f) + (PFromCenter * 10.0f);
+        GlobalCameraDP = GlobalCameraDP + (Ddp * Time);
+        GlobalCameraP = GlobalCameraP + ((Ddp * Time * Time * 0.5f) + (GlobalCameraDP * Time));
+        
+        // v2 Ddp = PFromCenter;
+        // GlobalCameraDP = GlobalCameraDP + Ddp ;
+        // GlobalCameraP = GlobalCameraP  + GlobalCameraDP * dt * dt;
 
-        GlobalCameraDP = GlobalCameraDP + (Ddp * dt);
-        GlobalCameraP = GlobalCameraP + ((Ddp * dt * dt * 0.5f) + (GlobalCameraDP * dt));
+        real32 ZeroStep = 0.01;
+        if(GlobalCameraP.X < ZeroStep && GlobalCameraP.X > -ZeroStep) { GlobalCameraP.X = 0; }
+        if(GlobalCameraP.Y < ZeroStep && GlobalCameraP.Y > -ZeroStep) { GlobalCameraP.Y = 0; }
     }
 
 
@@ -820,245 +915,281 @@ SimulateGame(game_memory GameMemory, game_render_buffer *Buffer, game_input *Inp
 
     if(GlobalGameMode == GAME_MODE_GAMEPLAY) 
     {
-        for(ball *Ball = Balls; Ball != Balls + ARRAY_COUNT(Balls); Ball++)
-        {
-            if(!(Ball->Flags & BALL_ACTIVE)) { continue; }
+        if(GlobalLevelTransitionTime > 0) {
+            GlobalLevelTransitionTime -= dt;
 
-            Ball->DesiredP = Ball->P + (Ball->dP * dt);
+            if(!TransitionStarted && GlobalLevelTransitionTime < 0.5) {
+                TransitionStarted = true;
+                real32 WallWiggleAmount = 10.0f;
+                ArenaWalls.Left.VisualP.X += -WallWiggleAmount;
+                ArenaWalls.Right.VisualP.X += WallWiggleAmount;
+                ArenaWalls.Top.VisualP.Y += -WallWiggleAmount;
 
-            bool32 BallXOverRight  = Ball->DesiredP.X + (Ball->Size.X/2) >  Arena.P.X + (Arena.Size.X*0.5);
-            bool32 BallXOverLeft   = Ball->DesiredP.X - (Ball->Size.X/2) <  Arena.P.X - (Arena.Size.X*0.5);
-            bool32 BallYOverBottom = Ball->DesiredP.Y + (Ball->Size.Y/2) >  Arena.P.Y + (Arena.Size.Y*0.5);
-            bool32 YOverTop        = Ball->DesiredP.Y - (Ball->Size.Y/2) <  Arena.P.Y - (Arena.Size.Y*0.5);
-
-            if((YOverTop)) {
-                ProcessBallOnDpYDown(Ball);
-                if(YOverTop)        { Ball->DesiredP.Y = Arena.P.Y - Arena.Size.Y*0.5 + Ball->Size.Y*0.5; }
-                if(BallYOverBottom) { Ball->DesiredP.Y = Arena.Size.Y*0.5 - Ball->Size.Y*0.5; }
-                Ball->dP.Y *= -1;
-                SpawnCollisionParticles(Ball);
-            } else if((BallXOverRight) || (BallXOverLeft)) {
-                ProcessBallOnDpYDown(Ball);
-                if(BallXOverRight) { Ball->DesiredP.X =  Arena.Size.X*0.5 - Ball->Size.X*0.5; }
-                if(BallXOverLeft)  { Ball->DesiredP.X = -Arena.Size.X*0.5 + Ball->Size.X*0.5; }
-                Ball->dP.X *= -1;
-                SpawnCollisionParticles(Ball);
+                // ArenaWalls.Left.dP = V2(-WallWiggleAmount, 0);
+                // ArenaWalls.Right.dP = V2(WallWiggleAmount, 0);
+                // ArenaWalls.Top.dP = V2(0, -WallWiggleAmount);
             }
-            if(InvincibilityTime > 0) {
-                if(BallYOverBottom) { 
-                    Ball->DesiredP.Y =  Arena.Size.Y*0.5 - Ball->Size.Y*0.5; 
+
+            DrawLevelTransition(Buffer, GlobalCameraP, &GlobalAssets, dt, BlockList, BlockTotalCount, GlobalLevelTransitionTime, &Arena, &ArenaWalls, ColorArenaBg);
+        } else {
+            TransitionStarted = false;
+            for(ball *Ball = Balls; Ball != Balls + ARRAY_COUNT(Balls); Ball++)
+            {
+                if(!(Ball->Flags & BALL_ACTIVE)) { continue; }
+
+                Ball->DesiredP = Ball->P + (Ball->dP * dt);
+                
+                collision_type CollisionWallLeft = CollisionSide(ArenaWalls.Left.P, ArenaWalls.Left.Size, Ball->DesiredP, Ball->Size);
+                collision_type CollisionWallRight = CollisionSide(ArenaWalls.Right.P, ArenaWalls.Right.Size, Ball->DesiredP, Ball->Size);
+                collision_type CollisionWallTop = CollisionSide(ArenaWalls.Top.P, ArenaWalls.Top.Size, Ball->DesiredP, Ball->Size);
+
+                real32 WallWiggleAmount = 50.0f;
+                if(CollisionWallLeft != COLLISION_NONE) {
+                    ArenaWalls.Left.dP = V2(-WallWiggleAmount, 0);
+                    Ball->dP.X *= -1;
+                }
+
+                if(CollisionWallRight != COLLISION_NONE) {
+                    ArenaWalls.Right.dP = V2(WallWiggleAmount, 0);
+                    Ball->dP.X *= -1;
+                }
+
+                if(CollisionWallTop != COLLISION_NONE) {
+                    ArenaWalls.Top.dP = V2(0, -WallWiggleAmount);
+                    if(!FirstBallMovement) {
+                        Ball->dP.Y *= -1;
+                    } else if (Ball->dP.Y < 0) {
+                        Ball->dP.Y *= -1;
+                    }
+                }
+
+                if(Balls[0].P.Y > (Arena.Margin.Bottom)) {
+                    if((InvincibilityTime > 0) || (FirstBallMovement)) {
+                        Ball->DesiredP.Y =  Arena.Margin.Bottom - Ball->Size.Y*0.5; 
+                        Ball->dP.Y *= -1;
+                    } else {
+                        LoseLife();
+                    }
+                }
+
+                for(s32 Index = 0; Index < BLOCK_COUNT; Index++)
+                {
+                    block *Block = BlockList + Index;
+                    if(Block->Life) { if(!FirstBallMovement) {
+                            static int test = 0;
+                            collision_type Collision = CollisionSide(Block->P, Block->Size, V2(Ball->DesiredP.X, Ball->DesiredP.Y), Ball->Size);
+                            if(COLLISION_NONE != CollisionSide(Block->P, Block->Size, V2(Ball->DesiredP.X, Ball->DesiredP.Y), Ball->Size)) {
+
+                                AddScreenshake(50);
+
+                                GlobalGameState.CurrentLevelScore += 1;
+
+                                GameMemory.DEBUGPlatformPlayWav(sound3, false);
+
+                                ProcessBallOnDpYDown(Ball);
+
+                                SpawnCollisionParticles(Ball);
+
+                                if(! (CometTime > 0)) {
+                                    if(Collision == COLLISION_LEFT) { 
+                                        Ball->dP.X *= -1;
+                                    }
+                                    if(Collision == COLLISION_RIGHT) {
+                                        Ball->dP.X *= -1;
+                                    }
+                                    if(Collision == COLLISION_TOP) {
+                                        Ball->dP.Y *= -1;
+                                    }
+                                    if(Collision == COLLISION_BOTTOM) {
+                                        Ball->dP.Y *= -1;
+                                    }
+                                }
+
+                                if(!(StrongBlocksTime > 0)) {
+                                    Block->Life -= 1;
+                                    BlockIsDestroyed(Block);
+                                }
+
+                                break;
+                            }
+                        }
+
+                        if(Ball->dP.Y > 0) {
+                            CometTime = 0;
+                        }
+
+                    }
+                }
+
+                if(IsColliding(Ball->DesiredP, Ball->Size, PaddleDesiredP, Paddle.VisualSize)) {
+                    FirstBallMovement = false;
+
+                    SpawnCollisionParticles(Ball);
+
                     Ball->dP.Y *= -1;
+
+                    float MaxMoveSpeedX = GlobalBallBaseSpeed * 2;
+                    float MinusOneToOneRange = -1 * ((Paddle.P.X - Ball->DesiredP.X) / ((float)Paddle.VisualSize.X / 2));
+                    Ball->dP.X = Clamp(-MaxMoveSpeedX, MaxMoveSpeedX * MinusOneToOneRange, MaxMoveSpeedX);
+
+                    if(GlobalNumberOfTripleShots > 0) {
+                        GlobalNumberOfTripleShots--;
+                        SpawnTripleShotsBalls(Ball->DesiredP, Ball->Size, 0xff00ff);
+                    }
+                } else {
+                    Ball->P.X = Ball->DesiredP.X;
+                    Ball->P.Y = Ball->DesiredP.Y;
+                }
+
+
+                {
+                    v2 DP = { 0.02 * RandomUniformRange(-1, 1), 0.02 * RandomUniformRange(-1, 1), };
+
+                    SpawnParticle(Ball->P, Ball->Size, Ball->Color, DP, 0.5);
                 }
             }
+
+            for(power *Power = PowerBlocks; 
+                    Power != PowerBlocks + ARRAY_COUNT(PowerBlocks);
+                    Power++) 
+            {
+                if(Power->Type == POWER_INACTIVE) { continue; }
+                real32 Speed = 30;
+                Power->P.Y += 1*dt*Speed;
+
+                if(IsColliding(Power->P, PowerBlockSize, Paddle.P, Paddle.VisualSize)) {
+                    // Paddle.Color = 0x00000000;
+                    switch(Power->Type) {
+                        case POWER_INVINCIBILITY: 
+                            {
+                                InvincibilityTime += 5.0f;
+                            } break;
+
+                        case POWER_COMET: 
+                            {
+                                CometTime += 5.0f;
+                            } break;
+
+                        case POWER_TRIPLE_SHOT: 
+                            {
+                                GlobalNumberOfTripleShots++;
+                            } break;
+
+                        case POWER_INSTAKILL: 
+                            {
+                                // StartGame(GlobalCurrentLevel);
+                                LoseLife();
+                            } break;
+
+                        case POWER_STRONG_BLOCKS: 
+                            {
+                                StrongBlocksTime += 5.0f;
+                            } break;
+
+                        case POWER_INVERTED_CONTROLS: 
+                            {
+                                InvertedControlsTime += 5.0f;
+                            } break;
+
+                        default: 
+                            {
+                            }break;
+                    }
+
+                    Power->Type = POWER_INACTIVE;
+                }
+
+            }
+
+
+            // 
+            // Rendering
+            //
+            
+            // DrawRect(Buffer, GlobalCameraP, Arena.P, Arena.Size, 0x00aa0000);
+            DrawRect(Buffer, GlobalCameraP, Arena.P, Arena.Size, ColorArenaBg);
+
+            u32 ColorWalls = 0x0000ff;
+            DrawRect(Buffer, GlobalCameraP, ArenaWalls.Left.VisualP, ArenaWalls.Left.Size, ColorWalls);
+            DrawRect(Buffer, GlobalCameraP, ArenaWalls.Right.VisualP, ArenaWalls.Right.Size, ColorWalls);
+            DrawRect(Buffer, GlobalCameraP, ArenaWalls.Top.VisualP, ArenaWalls.Top.Size, ColorWalls);
+
+
 
             for(s32 Index = 0; Index < BLOCK_COUNT; Index++)
             {
                 block *Block = BlockList + Index;
-                if(Block->Life) {
-                    if(!FirstBallMovement) {
-                        static int test = 0;
-                        collision_type Collision = CollisionSide(Block->P, Block->Size, V2(Ball->DesiredP.X, Ball->DesiredP.Y), Ball->Size);
-                        if(COLLISION_NONE != CollisionSide(Block->P, Block->Size, V2(Ball->DesiredP.X, Ball->DesiredP.Y), Ball->Size)) {
-
-                            AddScreenshake(50);
-
-                            GlobalGameState.CurrentLevelScore += 1;
-
-                            GameMemory.DEBUGPlatformPlayWav(sound3, false);
-
-                            ProcessBallOnDpYDown(Ball);
-
-                            SpawnCollisionParticles(Ball);
-
-                            if(! (CometTime > 0)) {
-                                if(Collision == COLLISION_LEFT) { 
-                                    Ball->dP.X *= -1;
-                                }
-                                if(Collision == COLLISION_RIGHT) {
-                                    Ball->dP.X *= -1;
-                                }
-                                if(Collision == COLLISION_TOP) {
-                                    Ball->dP.Y *= -1;
-                                }
-                                if(Collision == COLLISION_BOTTOM) {
-                                    Ball->dP.Y *= -1;
-                                }
-                            }
-
-                            if(!(StrongBlocksTime > 0)) {
-                                Block->Life -= 1;
-                                BlockIsDestroyed(Block);
-                            }
-
-                            break;
-                        }
-                    }
-
-                    if(Ball->dP.Y > 0) {
-                        CometTime = 0;
-                    }
-
+                if(Block->Life) 
+                {
+                    DrawRect(Buffer, GlobalCameraP, Block->P, Block->Size, Block->Color);
                 }
             }
 
-            if(IsColliding(Ball->DesiredP, Ball->Size, PaddleDesiredP, Paddle.VisualSize)) {
-                FirstBallMovement = false;
 
-                SpawnCollisionParticles(Ball);
-
-                Ball->dP.Y *= -1;
-
-                float MaxMoveSpeedX = GlobalBallBaseSpeed * 2;
-                float MinusOneToOneRange = -1 * ((Paddle.P.X - Ball->DesiredP.X) / ((float)Paddle.VisualSize.X / 2));
-                Ball->dP.X = Clamp(-MaxMoveSpeedX, MaxMoveSpeedX * MinusOneToOneRange, MaxMoveSpeedX);
-
-                if(GlobalNumberOfTripleShots > 0) {
-                    GlobalNumberOfTripleShots--;
-                    SpawnTripleShotsBalls(Ball->DesiredP, Ball->Size, 0xff00ff);
-                }
-            } else {
-                Ball->P.X = Ball->DesiredP.X;
-                Ball->P.Y = Ball->DesiredP.Y;
+            if(InvincibilityTime > 0) {
+                real32 BitmapHeight = 20;
+                DrawBitmap(Buffer, &GlobalAssets.Images.ForceField, 
+                        GlobalCameraP, 
+                        V2(0, Arena.Margin.Bottom - BitmapHeight/2 + 2), 
+                        V2(Arena.Size.X, BitmapHeight));
             }
 
+            SimulateLevel(Buffer, GlobalCameraP);
 
+            SimulateLevelStateChanges(Buffer, GlobalCameraP, GlobalGameState.CurrentLevel, Paddle.P);
+
+            // NOTE: -- PARTICLE stuff
             {
-                v2 DP = { 0.02 * RandomUniformRange(-1, 1), 0.02 * RandomUniformRange(-1, 1), };
-
-                SpawnParticle(Ball->P, Ball->Size, Ball->Color, DP, 0.5);
-            }
-        }
-
-        for(power *Power = PowerBlocks; 
-                Power != PowerBlocks + ARRAY_COUNT(PowerBlocks);
-                Power++) 
-        {
-            if(Power->Type == POWER_INACTIVE) { continue; }
-            real32 Speed = 30;
-            Power->P.Y += 1*dt*Speed;
-
-            if(IsColliding(Power->P, PowerBlockSize, Paddle.P, Paddle.VisualSize)) {
-                // Paddle.Color = 0x00000000;
-                switch(Power->Type) {
-                    case POWER_INVINCIBILITY: {
-                                                  InvincibilityTime += 5.0f;
-                                              } break;
-
-                    case POWER_COMET: {
-                                          CometTime += 5.0f;
-                                      } break;
-
-                    case POWER_TRIPLE_SHOT: {
-                                                GlobalNumberOfTripleShots++;
-                                            } break;
-
-                    case POWER_INSTAKILL: 
-                                            {
-                                                // StartGame(GlobalCurrentLevel);
-                                                LoseLife();
-                                            } break;
-
-                    case POWER_STRONG_BLOCKS: 
-                                            {
-                                                StrongBlocksTime += 5.0f;
-                                            } break;
-
-                    case POWER_INVERTED_CONTROLS: 
-                                            {
-                                                InvertedControlsTime += 5.0f;
-                                            } break;
-
-                    default: {
-                             }break;
+                // NOTE: Simulate
+                for(int i = 0; i < ARRAY_COUNT(GlobalParticles); i++) {
+                    particle *Particle = GlobalParticles + i;
+                    Particle->P = Particle->P + Particle->DP;
                 }
 
-                Power->Type = POWER_INACTIVE;
+                // NOTE: Render
+                for(int i = 0; i < ARRAY_COUNT(GlobalParticles); i++) {
+                    particle *Particle = GlobalParticles + i;
+                    if(Particle->Life <= 0) { continue; } 
+
+                    // DrawRectAlpha(Buffer, Particle->P, Particle->Size, 0x000000, Particle->Life);
+                    DrawRectAlpha(Buffer, GlobalCameraP, Particle->P, Particle->Size, Particle->Color, Particle->Life);
+                    DrawRectRotated(Buffer, GlobalCameraP, Particle->P, Particle->Size, Particle->Color, Particle->Life, Particle->Angle);
+                    Particle->Life -= dt;
+                    Particle->Angle += 0.1;
+                }
             }
 
-        }
-
-        // 
-        // Rendering
-        //
-
-        DrawRect(Buffer, GlobalCameraP, Arena.P, Arena.Size, 0x00aa0000);
 
 
-        for(s32 Index = 0; Index < BLOCK_COUNT; Index++)
-        {
-            block *Block = BlockList + Index;
-            if(Block->Life) 
-            {
-                DrawRect(Buffer, GlobalCameraP, Block->P, Block->Size, Block->Color);
-            }
-        }
-
-
-        if(InvincibilityTime > 0) {
-            real32 Height = 20;
-            DrawBitmap(Buffer, &GlobalAssets.Images.ForceField, 
-                    GlobalCameraP, 
-                    V2(0, Arena.Size.Y/2 - Height/2), 
-                    V2(160, Height));
-        }
-
-        SimulateLevel(Buffer, GlobalCameraP);
-
-        SimulateLevelStateChanges(Buffer, GlobalCameraP, GlobalGameState.CurrentLevel, Paddle.P);
-
-        // NOTE: -- PARTICLE stuff
-        {
-            // NOTE: Simulate
-            for(int i = 0; i < ARRAY_COUNT(GlobalParticles); i++) {
-                particle *Particle = GlobalParticles + i;
-                Particle->P = Particle->P + Particle->DP;
+            if(AdvanceLevel) {
+                GlobalGameState.CurrentLevel = (level)(GlobalGameState.CurrentLevel + 1);
+                StartGame(GlobalGameState.CurrentLevel);
             }
 
-            // NOTE: Render
-            for(int i = 0; i < ARRAY_COUNT(GlobalParticles); i++) {
-                particle *Particle = GlobalParticles + i;
-                if(Particle->Life <= 0) { continue; } 
+            if(InvincibilityTime > 0) { InvincibilityTime -= dt; }
+            if(CometTime > 0) { CometTime -= dt; }
+            if(StrongBlocksTime > 0) { StrongBlocksTime -= dt; }
+            if(InvertedControlsTime > 0) { InvertedControlsTime -= dt; }
 
-                // DrawRectAlpha(Buffer, Particle->P, Particle->Size, 0x000000, Particle->Life);
-                DrawRectAlpha(Buffer, GlobalCameraP, Particle->P, Particle->Size, Particle->Color, Particle->Life);
-                DrawRectRotated(Buffer, GlobalCameraP, Particle->P, Particle->Size, Particle->Color, Particle->Life, Particle->Angle);
-                Particle->Life -= dt;
-                Particle->Angle += 0.1;
+            for(int i = 0; i < PlayerLifeCount; i++) {
+                real32 Size = 2;
+                real32 Offset = 0.7;
+                real32 StartX = Arena.P.X - (Arena.Size.X/2) + 5;
+                real32 X = StartX + i*Size + i*Offset;
+                real32 Y = Arena.P.Y - (Arena.Size.Y/2) + 2.5;
+                DrawRect(Buffer, GlobalCameraP, V2(X, Y), V2(Size, Size), 0x0000FF00);
+                DrawRect(Buffer, GlobalCameraP, V2(X, Y), V2(Size-0.8, Size-0.8), 0xff00ff);
             }
+
+            for(ball *Ball = Balls; Ball != Balls + ARRAY_COUNT(Balls); Ball++) {
+                if(!(Ball->Flags & BALL_ACTIVE)) { continue; }
+
+                DrawRect(Buffer, GlobalCameraP, V2(Ball->P.X, Ball->P.Y), Ball->Size, Ball->Color);
+            }
+
+
+            DrawNumber(Buffer, GlobalGameState.CurrentLevelScore, GlobalCameraP, V2(-Arena.Size.X/2 + 20, -Arena.Size.Y/2 + 1.5), 1.5, 0xffffffff);
         }
-
-
-        if(Balls[0].P.Y > (Arena.Size.Y / 2)) {
-            LoseLife();
-        }
-
-        if(AdvanceLevel) {
-            GlobalGameState.CurrentLevel = (level)(GlobalGameState.CurrentLevel + 1);
-            StartGame(GlobalGameState.CurrentLevel);
-        }
-
-        if(InvincibilityTime > 0) { InvincibilityTime -= dt; }
-        if(CometTime > 0) { CometTime -= dt; }
-        if(StrongBlocksTime > 0) { StrongBlocksTime -= dt; }
-        if(InvertedControlsTime > 0) { InvertedControlsTime -= dt; }
-
-        for(int i = 0; i < PlayerLifeCount; i++) {
-            real32 Size = 2;
-            real32 Offset = 0.7;
-            real32 StartX = Arena.P.X - (Arena.Size.X/2) - 3;
-            real32 X = StartX + i*Size + i*Offset;
-            real32 Y = Arena.P.Y - (Arena.Size.Y/2) - 2.5;
-            DrawRect(Buffer, GlobalCameraP, V2(X, Y), V2(Size, Size), 0x0000FF00);
-        }
-
-        for(ball *Ball = Balls; Ball != Balls + ARRAY_COUNT(Balls); Ball++) {
-            if(!(Ball->Flags & BALL_ACTIVE)) { continue; }
-
-            DrawRect(Buffer, GlobalCameraP, V2(Ball->P.X, Ball->P.Y), Ball->Size, Ball->Color);
-        }
-
-
-        DrawNumber(Buffer, GlobalGameState.CurrentLevelScore, GlobalCameraP, V2(-Arena.Size.X/2 + 10, -Arena.Size.Y/2 + 1.5), 1.5, 0xffffffff);
     } else if (GlobalGameMode == GAME_MODE_MENU) {
         DrawMenu(Buffer, GameMemory, Input, &Arena, GlobalCameraP, Paddle, &GlobalGameLevelState, &GlobalGameState, &GlobalAssets);
     }
@@ -1070,8 +1201,8 @@ SimulateGame(game_memory GameMemory, game_render_buffer *Buffer, game_input *Inp
         else                      { Paddle.Color = 0x0000ff00; }
 
         // TODO: This is a lot of garbage work, make better data structures to remove this repeated work
-        real32 LeftMarginForPaddle = Arena.P.X - Arena.Size.X/2 + Paddle.Size.X/2;
-        real32 RightMarginForPaddle = Arena.P.X + Arena.Size.X/2 - Paddle.Size.X/2;
+        real32 LeftMarginForPaddle = Arena.Margin.Left + Paddle.Size.X/2;
+        real32 RightMarginForPaddle = Arena.Margin.Right - Paddle.Size.X/2;
 
         Paddle.P = PaddleDesiredP;
 
@@ -1093,6 +1224,7 @@ SimulateGame(game_memory GameMemory, game_render_buffer *Buffer, game_input *Inp
         // DrawRectAlpha(Buffer, Paddle.P, Paddle.Size, 0xffffff, 0.1);
         DrawRect(Buffer, GlobalCameraP, Paddle.VisualP, Paddle.VisualSize,Paddle.Color);
     }
+
 
 
 
@@ -1148,28 +1280,33 @@ SimulateGame(game_memory GameMemory, game_render_buffer *Buffer, game_input *Inp
     }
 
 
+    DrawRect(Buffer, GlobalCameraP, V2(Arena.Margin.Left, 0), V2(1, 20), 0xffff00);
+    DrawRect(Buffer, GlobalCameraP, V2(Arena.Margin.Right, 0), V2(1, 20), 0xffff00);
+    DrawRect(Buffer, GlobalCameraP, V2(0, Arena.Margin.Top), V2(20, 1), 0xffff00);
+    DrawRect(Buffer, GlobalCameraP, V2(0, Arena.Margin.Bottom), V2(20, 1), 0xffff00);
+
+
 #if DEVELOPMENT
     if(IS_CHANGED(Input, BUTTON_LEFT)) { StartGame((level)(GlobalGameState.CurrentLevel - 1)); }
     if(IS_CHANGED(Input, BUTTON_RIGHT)) { StartGame((level)(GlobalGameState.CurrentLevel + 1)); }
 
-    // if(IS_CHANGED(Input, BUTTON_LEFT)) { 
-    //     test--;
-    // }
-    // if(IS_CHANGED(Input, BUTTON_RIGHT)) { 
-    //     test++;
-    // }
+    // static v2 Test = {0, 0};
+    // if(IS_PRESSED(Input, BUTTON_LEFT)) { Test.X -= 1; printf("%.2f %.2f\n", Test.X, Test.Y); }
+    // if(IS_PRESSED(Input, BUTTON_RIGHT)) { Test.X += 1; printf("%.2f %.2f\n", Test.X, Test.Y); }
+    // if(IS_PRESSED(Input, BUTTON_UP)) { Test.Y -= 1; printf("%.2f %.2f\n", Test.X, Test.Y); }
+    // if(IS_PRESSED(Input, BUTTON_DOWN)) { Test.Y += 1; printf("%.2f %.2f\n", Test.X, Test.Y); }
+    // DrawRect(Buffer, GlobalCameraP, Test, V2(1, 1), 0x000000);
     
-    if(IS_PRESSED(Input, BUTTON_DOWN)) { 
-        static int test = 0;
-        printf("test: %d\n", test);
-        ConsolePrintInt(test++);
-    }
+    // if(IS_PRESSED(Input, BUTTON_DOWN)) { 
+    //     static int test = 0;
+    //     printf("test: %d\n", test);
+    //     ConsolePrintInt(test++);
+    // }
 
     if(IS_CHANGED(Input, BUTTON_UP)) { 
         if(InvincibilityTime > 0) { InvincibilityTime = 0.0f; }
         else { InvincibilityTime = 20.0f; }
     }
-    // if(IS_PRESSED(Input, BUTTON_DOWN))  { Paddle.P.Y += Speed; }
 #endif
 
 }

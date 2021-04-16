@@ -6,12 +6,20 @@ char *LevelNames[] = {
     "SPACE\nINVADERS"
 };
 
+global_variable v2 GlobalLeftImageP = {-60, -21};
+global_variable v2 GlobalRightImageP = {60, -21};
+
+global_variable u32 GlobalColorMenuBg = 0x000000;
+
 void 
 DrawMenu(game_render_buffer *Buffer, game_memory GameMemory, game_input *Input, arena *Arena,
         v2 CameraP,
         paddle Paddle, game_levels_state *LevelStates,
         game_state *GameState, assets *Assets) {
     
+    DrawRect(Buffer, CameraP, Arena->P, Arena->Size, GlobalColorMenuBg);
+    DrawRect(Buffer, CameraP, V2(0, -20), V2(180, 35), 0xff0000);
+
     int Width = Arena->Size.X  / LEVEL__COUNT;;
     int NumberSize = 5;
 
@@ -52,8 +60,61 @@ DrawMenu(game_render_buffer *Buffer, game_memory GameMemory, game_input *Input, 
         }
     }
 
+    GlobalLeftImageP = V2(-60, -21);
+    GlobalRightImageP = V2(60, -21);
+
+    DrawBitmap(Buffer, &Assets->Images.LeftCurtain, CameraP, GlobalLeftImageP, V2(60, 60));
+    DrawBitmap(Buffer, &Assets->Images.RightCurtain, CameraP, GlobalRightImageP, V2(60, 60));
+
     if(IS_CHANGED(Input, BUTTON_MOUSE_LEFT)) { 
         GameState->CurrentLevel = (level)SelectedLevel;
         ChangeGameMode(GameMemory, GAME_MODE_GAMEPLAY);
     }
+}
+
+
+void 
+DrawLevelTransition(game_render_buffer *Buffer, v2 CameraP, assets *Assets, real32 dt, 
+        block *Blocks, s32 BlockCount, real32 TransitionTime, arena *Arena, arena_walls *Walls, u32 LevelColor)
+{
+    real32 t = fmax(0, 1 - TransitionTime);
+    u32 ColorMenuTransitionBg = LerpColor(GlobalColorMenuBg, LevelColor, t);
+
+    DrawRect(Buffer, CameraP, Arena->P, Arena->Size, ColorMenuTransitionBg);
+
+    for(int i = 0; i < BlockCount; i++) {
+        block *Block = Blocks + i;
+
+        if(Block->Life) {
+
+            real32 a = (1 - TransitionTime) + (0.3f* (real32)i/(real32)BlockCount);
+            a = fmin(1, a);
+
+            v2 PositionOffset = Block->P + V2(0, -100);
+            
+            v2 P = Lerp(PositionOffset, Block->P, a);
+
+            DrawRect(Buffer, CameraP, P, Block->Size, Block->Color);
+        }
+    }
+
+
+    if(TransitionTime < 0.5)
+    {
+        u32 ColorWalls = 0x0000ff;
+        DrawRect(Buffer, GlobalCameraP, Walls->Left.VisualP, Walls->Left.Size, ColorWalls);
+        DrawRect(Buffer, GlobalCameraP, Walls->Right.VisualP, Walls->Right.Size, ColorWalls);
+        DrawRect(Buffer, GlobalCameraP, Walls->Top.VisualP, Walls->Top.Size, ColorWalls);
+    }
+
+
+    real32 StepSize = 60 * dt;
+    GlobalLeftImageP.X -= StepSize;
+    GlobalRightImageP.X += StepSize;
+    GlobalLeftImageP.Y -= StepSize;
+    GlobalRightImageP.Y -= StepSize;
+
+
+    DrawBitmap(Buffer, &Assets->Images.LeftCurtain, CameraP, GlobalLeftImageP, V2(60, 60));
+    DrawBitmap(Buffer, &Assets->Images.RightCurtain, CameraP, GlobalRightImageP, V2(60, 60));
 }
