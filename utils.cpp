@@ -22,6 +22,12 @@ typedef double real64;
 
 #define ARRAY_COUNT(A) sizeof(A) / sizeof(A[0])
 
+#define THOUSAND 1000.0
+// #define MILLION  THOUSAND * THOUSAND
+// #define BILLION MILLION * THOUSAND
+#define MILLION 1000000.0
+#define BILLION 1000000000.0
+
 
 inline void 
 ZeroSize(void *Memory, u64 Size) {

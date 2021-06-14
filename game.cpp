@@ -251,6 +251,8 @@ global_variable assets GlobalAssets;
 
 
 
+global_variable loaded_audio game_main_bg_sound;
+global_variable loaded_audio ball_hit_1;
 global_variable loaded_audio sound1;
 global_variable loaded_audio sound2;
 global_variable loaded_audio sound3;
@@ -824,10 +826,13 @@ SimulateGame(game_memory GameMemory, game_render_buffer *Buffer, game_input *Inp
         LoadPng(GameMemory, "../data/log_light.png", &GlobalAssets.Images.LogoLight);
 
 
+        game_main_bg_sound = GameMemory.DEBUGPlatformLoadWav((u8 *)"../data/breakout_main.wav");
+        ball_hit_1 = GameMemory.DEBUGPlatformLoadWav((u8 *)"../data/sfx/hit_5.wav");
         sound1 = GameMemory.DEBUGPlatformLoadWav((u8 *)"../data/test.wav");
         sound2 = GameMemory.DEBUGPlatformLoadWav((u8 *)"../data/sine.wav");
         sound3 = GameMemory.DEBUGPlatformLoadWav((u8 *)"../data/collision3.wav");
-        // GameMemory.DEBUGPlatformPlayWav(sound1, false);
+
+        GameMemory.DEBUGPlatformPlayWav(game_main_bg_sound, false);
 
         LoadGameFile(GameMemory);
 
@@ -857,8 +862,6 @@ SimulateGame(game_memory GameMemory, game_render_buffer *Buffer, game_input *Inp
         Arena.Margin.Right = Arena.P.X + (0.5*Arena.Size.X) - (0.5*ArenaWalls.Right.Size.X);
         Arena.Margin.Top = Arena.P.Y - (0.5*Arena.Size.Y) + (0.5*ArenaWalls.Top.Size.Y);
         Arena.Margin.Bottom = Arena.P.Y + (0.5*Arena.Size.Y);
-
-        printf("%f\n", ArenaWalls.Top.Size.Y);
 
 
         ChangeGameMode(GameMemory, GAME_MODE_MENU);
@@ -981,10 +984,12 @@ SimulateGame(game_memory GameMemory, game_render_buffer *Buffer, game_input *Inp
                             if(COLLISION_NONE != CollisionSide(Block->P, Block->Size, V2(Ball->DesiredP.X, Ball->DesiredP.Y), Ball->Size)) {
 
                                 AddScreenshake(50);
+                                
 
                                 GlobalGameState.CurrentLevelScore += 1;
 
-                                GameMemory.DEBUGPlatformPlayWav(sound3, false);
+                                // GameMemory.DEBUGPlatformPlayWav(sound3, false);
+                                GameMemory.DEBUGPlatformPlayWav(ball_hit_1, false);
 
                                 ProcessBallOnDpYDown(Ball);
 

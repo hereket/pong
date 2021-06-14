@@ -3,6 +3,7 @@
 #include <SDL2/SDL.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <unistd.h>
 #include "utils.cpp"
 
 #include "math.cpp"
@@ -53,19 +54,19 @@ MACResizeTexture(SDL_Renderer *Renderer,  macos_render_buffer *Buffer, int Width
                                         SDL_TEXTUREACCESS_STREAMING, Width, Height);
 }
 
-inline real32 
+inline u64 
 DEBUGPlatformGetTimeNanoseconds() 
 {
     // clock_gettime_nsec_np(CLOCK_UPTIME_RAW) * 1000;
     
     u64 Ticks = mach_absolute_time();
-    u64 Nanoseconds = Ticks * GlobalFrequencyCounter;
+    u64 Nanoseconds = (u64)((double)Ticks * (double)GlobalFrequencyCounter);
     return Nanoseconds;
 }
 
 
-inline real32
-DEBUGPlatformGetTimeElapsedNanoseconds(real32 OldTimeNanosecods) 
+inline u64
+DEBUGPlatformGetTimeElapsedNanoseconds(u64 OldTimeNanosecods) 
 {
     u64 CurrentNanoseconds = DEBUGPlatformGetTimeNanoseconds();
     u64 TimeElapsedNanoseconds = CurrentNanoseconds - OldTimeNanosecods;
@@ -77,7 +78,8 @@ DEBUGPlatformGetTimeElapsedNanoseconds(real32 OldTimeNanosecods)
 real32
 DEBUGPlatformGetTimeElapsedMilliseconds(real32 Milliseconds) 
 {
-    double TimeElapsedMilliseconds = DEBUGPlatformGetTimeElapsedNanoseconds(Milliseconds * 1000000) / 1000000;
+    double TimeElapsedMilliseconds = (double)DEBUGPlatformGetTimeElapsedNanoseconds(Milliseconds * 1000000) / 1000000.0;
+    printf("%f\n",TimeElapsedMilliseconds);
     return TimeElapsedMilliseconds;
 }
 
@@ -139,19 +141,19 @@ DEBUG_PLATFORM_PLAY_WAV(PlayWav)
 
     bool32 AddedTrack = false;
 
-    // for(s32 i = 0; i < PLAYING_SOUNDS_COUNT; i++) {
-    //     loaded_audio OldTrack = PlayingSounds[i];
-    //     if(!OldTrack.IsPlaying) {
-    //         PlayingSounds[i] = Track;
-    //         AddedTrack = true;
-    //         break;
-    //     }
-    // }
-    //
-    // if(!AddedTrack) {
-    //     printf("Couldn't add track. Probably no more empty slots left.\n");
-    // }
-    //
+    for(s32 i = 0; i < PLAYING_SOUNDS_COUNT; i++) {
+        loaded_audio OldTrack = PlayingSounds[i];
+        if(!OldTrack.IsPlaying) {
+            PlayingSounds[i] = Track;
+            AddedTrack = true;
+            break;
+        }
+    }
+
+    if(!AddedTrack) {
+        printf("Couldn't add track. Probably no more empty slots left.\n");
+    }
+
 }
 
 DEBUG_PLATFORM_LOAD_WAV(LoadWav)
@@ -201,15 +203,13 @@ void AudioCallback(void *UserData, u8 *Stream, int RequestedBytes)
     }
 }
 
-global_variable real32 ListOfDt[128];
+global_variable real32 ListOfDt[60];
 global_variable int DtIndex;
-
 
 int main()
 {
     if(SDL_Init(SDL_INIT_VIDEO) < 0) { printf("Failed to initialize the SDL2 library\n"); return -1; }
     if(SDL_Init(SDL_INIT_AUDIO) < 0) { printf("Failed to init sdl audio\n"); return - 1; }
-
 
     {
         SDL_AudioSpec WantedAudioSpec;
@@ -224,6 +224,13 @@ int main()
         SDL_PauseAudio(0);
     }
 
+    // u64 loopTotal = 10;
+    // u64 small = 5;
+    // for(u64 i = 0; i < loopTotal; i++) {
+    //     printf("%llu %% %llu = %llu\n", i, small, i % small);
+    // }
+    //
+    // return 0;
 
 
 
@@ -375,7 +382,7 @@ int main()
 
         ProfilerEnd(PROFITEM_GAME);
 
-        RenderProfiler(&RenderBuffer, dt);
+        RenderProfiler(&RenderBuffer, dt, ListOfDt, ARRAY_COUNT(ListOfDt), DtIndex);
 
 
         ProfilerStart(PROFITEM_FLIP);
@@ -386,18 +393,33 @@ int main()
         SDL_RenderPresent(Renderer);
 
         // u64 CurrentTime = SDL_GetPerformanceCounter();
-        u64 CurrentTime = DEBUGPlatformGetTimeNanoseconds();
+
 
         if(GlobalWindowIsFocused) {
             SDL_WarpMouseInWindow(Window, WindowCenterX, WindowCenterY);
         }
 
-        /* real64 dt = (real64)(CurrentTime - LastTime)/Frequency * 1000; */
-        // dt = (real64)(CurrentTime - LastTime)/Frequency;
-#define BILLION 1000000000
-        dt = DEBUGPlatformGetTimeElapsedNanoseconds(LastTime) / BILLION;
-        // dt = 0.016;
+        real32 testDt = DEBUGPlatformGetTimeElapsedNanoseconds(LastTime) / BILLION;
 
+
+        real32 FramesPerSeconds = 60;
+        s64 FrameMinimumTimeInMicroseconds = (1.0 / FramesPerSeconds) * 1000.0 * 1000.0;
+        if(testDt <= 1.0 / FramesPerSeconds) {
+            s64 dtInMicroseconds = testDt * 1000 * 1000;
+            s64 TimeToSleep = FrameMinimumTimeInMicroseconds - dtInMicroseconds;
+
+            int d = usleep(TimeToSleep);
+            // printf("%f %lld %lld %lld\n", testDt, dtInMicroseconds, FrameMinimumTimeInMicroseconds, TimeToSleep);
+        }
+
+        dt = DEBUGPlatformGetTimeElapsedNanoseconds(LastTime) / BILLION;
+
+        u64 ListSize = ARRAY_COUNT(ListOfDt);
+        ListOfDt[DtIndex++] = dt;
+        DtIndex = DtIndex % ListSize;
+
+
+        u64 CurrentTime = DEBUGPlatformGetTimeNanoseconds();
         LastTime = CurrentTime;
 
         ProfilerEnd(PROFITEM_FLIP);

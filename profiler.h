@@ -1,7 +1,7 @@
 
 typedef enum {
-    PROFITEM_INPUT,
     PROFITEM_GAME,
+    PROFITEM_INPUT,
     PROFITEM_FLIP,
 
     PROFITEM_DRAW_RECT,
@@ -15,7 +15,7 @@ typedef enum {
 
 typedef struct {
     u64 HitCount;
-    double BeginTime;
+    u64 BeginTime;
     double Time;
 } perf_data;
 
