@@ -23,10 +23,13 @@ typedef double real64;
 #define ARRAY_COUNT(A) sizeof(A) / sizeof(A[0])
 
 #define THOUSAND 1000.0
-// #define MILLION  THOUSAND * THOUSAND
-// #define BILLION MILLION * THOUSAND
-#define MILLION 1000000.0
-#define BILLION 1000000000.0
+#define MILLION  1000000.0
+#define BILLION  1000000000.0
+
+#define KILLOBYTE(n) (1024ll * (n))
+#define MEGABYTE(n)  (1024ll * KILLOBYTE(n))
+#define GIGABYTE(n)  (1024ll * MEGABYTE(n))
+#define TERABYTE(n)  (1024ll * GIGABYTE(n))
 
 
 inline void 

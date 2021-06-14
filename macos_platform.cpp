@@ -4,7 +4,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <unistd.h>
-#include "utils.cpp"
+#include "utils.h"
 
 #include "math.cpp"
 #include "game.h"
