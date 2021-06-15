@@ -11,6 +11,7 @@
 #include "profiler.h"
 
 #include "software_renderer.cpp"
+#include "asset_loader.cpp"
 
 #include "profiler.cpp"
 

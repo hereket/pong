@@ -1,3 +1,5 @@
+#ifndef __utils_h_
+
 typedef int8_t  s8;
 typedef int16_t s16;
 typedef int32_t s32;
@@ -31,6 +33,18 @@ typedef double real64;
 #define GIGABYTE(n)  (1024ll * MEGABYTE(n))
 #define TERABYTE(n)  (1024ll * GIGABYTE(n))
 
+#define Assert(Expression) if(!(Expression)) {*(volatile int *)0 = 0;}
+
+
+typedef struct {
+    u32 VersionNumber;
+    u32 AssetCount;
+    u64 Size;
+    u8 *Data;
+    u8 *AssetSizeTableBase;
+    u8 *FileDataBase;
+} asset_file;
+
 
 inline void 
 ZeroSize(void *Memory, u64 Size) {
@@ -42,4 +56,8 @@ ZeroSize(void *Memory, u64 Size) {
 
 #define ZERO_STRUCT(A) ZeroSize(&(A), sizeof(A))
 #define ZERO_ARRAY(A) ZeroSize(&(A), (sizeof(A)))
+
+
+#define __utils_h_
+#endif
 

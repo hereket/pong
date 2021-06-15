@@ -1,7 +1,5 @@
 #include "collision.cpp"
 
-#define STB_IMAGE_IMPLEMENTATION
-#include "stb_image.h"
 
 
 
@@ -177,6 +175,7 @@ global_variable game_levels_state GlobalGameLevelState;
 global_variable v2 GlobalCameraP;
 global_variable v2 GlobalCameraDP;
 
+global_variable asset_file GlobalAssetFile;
 
 
 
@@ -202,7 +201,7 @@ SaveGameFile(game_memory GameMemory)
 }
 
 void
-LoadGameFile(game_memory GameMemory)
+LoadGameSaveFile(game_memory GameMemory)
 {
     read_file_result LoadedFile = GameMemory.DEBUGPlatformReadEntireFile(GameSafeFilename);
     GlobalGameLevelState = *((game_levels_state *)LoadedFile.Memory);
@@ -802,7 +801,6 @@ UpdateWallPosition(wall *Wall, real32 dt) {
     Wall->VisualP = Wall->VisualP + (Wall->dP * Time) + (Ddp * Time * Time * 0.5f);
 }
 
-
 void 
 SimulateGame(game_memory GameMemory, game_render_buffer *Buffer, game_input *Input, real32 dt)
 {
@@ -814,16 +812,20 @@ SimulateGame(game_memory GameMemory, game_render_buffer *Buffer, game_input *Inp
         // GlobalCurrentLevel = LEVEL_06_INVADERS;
         PowerBlockSize = V2(2, 2);
 
-        LoadPng(GameMemory, "../data/invincibility.png", &GlobalAssets.Images.PowerupInvincibility);
-        LoadPng(GameMemory, "../data/triple_shot.png", &GlobalAssets.Images.PowerupTripleShot);
-        LoadPng(GameMemory, "../data/commet.png", &GlobalAssets.Images.PowerupComet);
-        LoadPng(GameMemory, "../data/force_field.png", &GlobalAssets.Images.ForceField);
+        LoadAssetFile(&GameMemory, &GlobalAssetFile);
 
-        LoadPng(GameMemory, "../data/left_curtain.png", &GlobalAssets.Images.LeftCurtain);
-        LoadPng(GameMemory, "../data/right_curtain.png", &GlobalAssets.Images.RightCurtain);
+        LoadAllPngs(&GlobalAssetFile);
 
-        LoadPng(GameMemory, "../data/logo_dark.png", &GlobalAssets.Images.LogoDark);
-        LoadPng(GameMemory, "../data/log_light.png", &GlobalAssets.Images.LogoLight);
+        // LoadPng(GameMemory, "../data/invincibility.png", &GlobalAssets.Images.PowerupInvincibility);
+        // LoadPng(GameMemory, "../data/triple_shot.png", &GlobalAssets.Images.PowerupTripleShot);
+        // LoadPng(GameMemory, "../data/commet.png", &GlobalAssets.Images.PowerupComet);
+        // LoadPng(GameMemory, "../data/force_field.png", &GlobalAssets.Images.ForceField);
+        //
+        // LoadPng(GameMemory, "../data/left_curtain.png", &GlobalAssets.Images.LeftCurtain);
+        // LoadPng(GameMemory, "../data/right_curtain.png", &GlobalAssets.Images.RightCurtain);
+        //
+        // LoadPng(GameMemory, "../data/logo_dark.png", &GlobalAssets.Images.LogoDark);
+        // LoadPng(GameMemory, "../data/log_light.png", &GlobalAssets.Images.LogoLight);
 
 
         game_main_bg_sound = GameMemory.DEBUGPlatformLoadWav((u8 *)"../data/breakout_main.wav");
@@ -834,7 +836,10 @@ SimulateGame(game_memory GameMemory, game_render_buffer *Buffer, game_input *Inp
 
         GameMemory.DEBUGPlatformPlayWav(game_main_bg_sound, false);
 
-        LoadGameFile(GameMemory);
+        LoadGameSaveFile(GameMemory);
+
+
+        exit(0);
 
         GlobalCameraP = V2(0, 0);
         GlobalCameraDP = V2(0, 0);

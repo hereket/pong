@@ -1,4 +1,4 @@
-
+#ifndef __platform_h__
 typedef struct {
     u8 *Memory;
     u64 Size;
@@ -37,3 +37,5 @@ typedef struct {
 
 
 
+#define __platform_h__
+#endif
