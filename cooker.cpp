@@ -49,7 +49,7 @@ ReadEntireFile(char *AssetPath) {
 
 void
 LoadAssetFileIntoMemory(char *AssetPath, s16 AssetFormat) {
-    static int i = 1;
+    static int i = 0;
     loaded_file *File = ReadEntireFile(AssetPath);
 
 
@@ -57,12 +57,11 @@ LoadAssetFileIntoMemory(char *AssetPath, s16 AssetFormat) {
     // GlobalAssetSizesListBaseAddress++;
     
     s32 OffsetFromStart = GlobalFileStorage - GlobalMemoryBase;
-    // s32 OffsetFromStart = sizeof(s16) * ;
     *GlobalAssetSizesListBaseAddress = OffsetFromStart;
     GlobalAssetSizesListBaseAddress++;
 
     // printf("%ld %ld %d\n", (long)GlobalMemoryBase, (long)GlobalFileStorage, OffsetFromStart);
-    printf("%d Loaded file %-40s | Filesize: %llu, Offset: %d - %x\n", i++, AssetPath, File->Size, OffsetFromStart, OffsetFromStart);
+    printf("%2d Loaded file %-40s | Filesize: %10llu, Offset: %8d - %x\n", i++, AssetPath, File->Size, OffsetFromStart, OffsetFromStart);
 
     *(s16 *)GlobalFileStorage = AssetFormat;
     GlobalFileStorage += sizeof(s16);
@@ -123,39 +122,100 @@ int main() {
     GlobalAssetSizesListBaseAddress = (s32 *)GlobalMemory;
     GlobalFileStorage = MoveMemoryPointerBy(AssetListSize);
 
+    // LoadAssetFileIntoMemory((char *)"../data/triple_shot.png", ASSET_FORMAT_PNG);
+    // LoadAssetFileIntoMemory((char *)"../data/invincibility.png", ASSET_FORMAT_PNG);
+    // LoadAssetFileIntoMemory((char *)"../data/commet.png", ASSET_FORMAT_PNG);
+    // LoadAssetFileIntoMemory((char *)"../data/commet.png", ASSET_FORMAT_PNG); // TODO: Inverted
+    // LoadAssetFileIntoMemory((char *)"../data/commet.png", ASSET_FORMAT_PNG); // TODO: TNT
+    // LoadAssetFileIntoMemory((char *)"../data/commet.png", ASSET_FORMAT_PNG); // TODO: TURTLE
+    // LoadAssetFileIntoMemory((char *)"../data/commet.png", ASSET_FORMAT_PNG); // TODO: STRONG_BLOCKS
+    // LoadAssetFileIntoMemory((char *)"../data/force_field.png", ASSET_FORMAT_PNG);
+    // LoadAssetFileIntoMemory((char *)"../data/left_curtain.png", ASSET_FORMAT_PNG);
+    // LoadAssetFileIntoMemory((char *)"../data/right_curtain.png", ASSET_FORMAT_PNG);
+    // LoadAssetFileIntoMemory((char *)"../data/logo_dark.png", ASSET_FORMAT_PNG);
+    // LoadAssetFileIntoMemory((char *)"../data/logo_light.png", ASSET_FORMAT_PNG);
+    //
+    //
+    // LoadAssetFileIntoMemory((char *)"../data/breakout_main.wav", ASSET_FORMAT_WAV); // TODO: Menu music
+    // LoadAssetFileIntoMemory((char *)"../data/breakout_main.wav", ASSET_FORMAT_WAV); 
+    //
+    //
+    // LoadAssetFileIntoMemory((char *)"../data/sfx/hit_1.wav", ASSET_FORMAT_WAV);
+    // LoadAssetFileIntoMemory((char *)"../data/sfx/hit_2.wav", ASSET_FORMAT_WAV);
+    // LoadAssetFileIntoMemory((char *)"../data/sfx/hit_3.wav", ASSET_FORMAT_WAV);
+    // LoadAssetFileIntoMemory((char *)"../data/sfx/hit_4.wav", ASSET_FORMAT_WAV);
+    // LoadAssetFileIntoMemory((char *)"../data/sfx/hit_5.wav", ASSET_FORMAT_WAV);
+    // LoadAssetFileIntoMemory((char *)"../data/sfx/hit_6.wav", ASSET_FORMAT_WAV);
+    // LoadAssetFileIntoMemory((char *)"../data/sfx/hit_7.wav", ASSET_FORMAT_WAV);
+    // LoadAssetFileIntoMemory((char *)"../data/sfx/hit_8.wav", ASSET_FORMAT_WAV);
+    // LoadAssetFileIntoMemory((char *)"../data/sfx/hit_9.wav", ASSET_FORMAT_WAV);
+    // LoadAssetFileIntoMemory((char *)"../data/sfx/hit_10.wav", ASSET_FORMAT_WAV);
+    // LoadAssetFileIntoMemory((char *)"../data/sfx/hit_11.wav", ASSET_FORMAT_WAV);
+    // LoadAssetFileIntoMemory((char *)"../data/sfx/hit_12.wav", ASSET_FORMAT_WAV);
+    // LoadAssetFileIntoMemory((char *)"../data/sfx/hit_13.wav", ASSET_FORMAT_WAV);
+    // LoadAssetFileIntoMemory((char *)"../data/sfx/hit_14.wav", ASSET_FORMAT_WAV);
+    // LoadAssetFileIntoMemory((char *)"../data/sfx/hit_15.wav", ASSET_FORMAT_WAV);
+    // LoadAssetFileIntoMemory((char *)"../data/sfx/hit_16.wav", ASSET_FORMAT_WAV);
+
+
+    // Bitmaps
     LoadAssetFileIntoMemory((char *)"../data/invincibility.png", ASSET_FORMAT_PNG);
     LoadAssetFileIntoMemory((char *)"../data/triple_shot.png", ASSET_FORMAT_PNG);
     LoadAssetFileIntoMemory((char *)"../data/commet.png", ASSET_FORMAT_PNG);
-    LoadAssetFileIntoMemory((char *)"../data/commet.png", ASSET_FORMAT_PNG); // TODO: Inverted
-    LoadAssetFileIntoMemory((char *)"../data/commet.png", ASSET_FORMAT_PNG); // TODO: TNT
-    LoadAssetFileIntoMemory((char *)"../data/commet.png", ASSET_FORMAT_PNG); // TODO: TURTLE
-    LoadAssetFileIntoMemory((char *)"../data/commet.png", ASSET_FORMAT_PNG); // TODO: STRONG_BLOCKS
+    LoadAssetFileIntoMemory((char *)"../data/commet.png", ASSET_FORMAT_PNG); // INVERTED
+    LoadAssetFileIntoMemory((char *)"../data/commet.png", ASSET_FORMAT_PNG); // INSTAKILL
+    LoadAssetFileIntoMemory((char *)"../data/commet.png", ASSET_FORMAT_PNG); // SLOWDOWN
+    LoadAssetFileIntoMemory((char *)"../data/commet.png", ASSET_FORMAT_PNG); // STRONG
+
     LoadAssetFileIntoMemory((char *)"../data/force_field.png", ASSET_FORMAT_PNG);
     LoadAssetFileIntoMemory((char *)"../data/left_curtain.png", ASSET_FORMAT_PNG);
     LoadAssetFileIntoMemory((char *)"../data/right_curtain.png", ASSET_FORMAT_PNG);
-    LoadAssetFileIntoMemory((char *)"../data/logo_dark.png", ASSET_FORMAT_PNG);
+
     LoadAssetFileIntoMemory((char *)"../data/logo_light.png", ASSET_FORMAT_PNG);
+    LoadAssetFileIntoMemory((char *)"../data/logo_dark.png", ASSET_FORMAT_PNG);
 
+    // Sounds
+    LoadAssetFileIntoMemory((char *)"../data/breakout_menu.ogg", ASSET_FORMAT_OGG);
+    LoadAssetFileIntoMemory((char *)"../data/breakout_main.ogg", ASSET_FORMAT_OGG);
+    LoadAssetFileIntoMemory((char *)"../data/sfx/hit_1.ogg", ASSET_FORMAT_OGG);
+    LoadAssetFileIntoMemory((char *)"../data/sfx/hit_2.ogg", ASSET_FORMAT_OGG);
+    LoadAssetFileIntoMemory((char *)"../data/sfx/hit_3.ogg", ASSET_FORMAT_OGG);
+    LoadAssetFileIntoMemory((char *)"../data/sfx/hit_4.ogg", ASSET_FORMAT_OGG);
+    LoadAssetFileIntoMemory((char *)"../data/sfx/hit_5.ogg", ASSET_FORMAT_OGG);
+    LoadAssetFileIntoMemory((char *)"../data/sfx/hit_6.ogg", ASSET_FORMAT_OGG);
+    LoadAssetFileIntoMemory((char *)"../data/sfx/hit_7.ogg", ASSET_FORMAT_OGG);
+    LoadAssetFileIntoMemory((char *)"../data/sfx/hit_8.ogg", ASSET_FORMAT_OGG);
+    LoadAssetFileIntoMemory((char *)"../data/sfx/hit_9.ogg", ASSET_FORMAT_OGG);
+    LoadAssetFileIntoMemory((char *)"../data/sfx/hit_10.ogg", ASSET_FORMAT_OGG);
+    LoadAssetFileIntoMemory((char *)"../data/sfx/hit_11.ogg", ASSET_FORMAT_OGG);
+    LoadAssetFileIntoMemory((char *)"../data/sfx/hit_12.ogg", ASSET_FORMAT_OGG);
+    LoadAssetFileIntoMemory((char *)"../data/sfx/hit_13.ogg", ASSET_FORMAT_OGG);
+    LoadAssetFileIntoMemory((char *)"../data/sfx/hit_14.ogg", ASSET_FORMAT_OGG);
+    LoadAssetFileIntoMemory((char *)"../data/sfx/hit_15.ogg", ASSET_FORMAT_OGG);
+    LoadAssetFileIntoMemory((char *)"../data/sfx/hit_16.ogg", ASSET_FORMAT_OGG);
+    LoadAssetFileIntoMemory((char *)"../data/sfx/game_over.ogg", ASSET_FORMAT_OGG);
+    LoadAssetFileIntoMemory((char *)"../data/sfx/force_field.wav", ASSET_FORMAT_WAV);
+    LoadAssetFileIntoMemory((char *)"../data/sfx/fireworks_1.wav", ASSET_FORMAT_WAV);
+    LoadAssetFileIntoMemory((char *)"../data/sfx/spring.wav", ASSET_FORMAT_WAV);
+    LoadAssetFileIntoMemory((char *)"../data/sfx/start game.wav", ASSET_FORMAT_WAV);
+    LoadAssetFileIntoMemory((char *)"../data/sfx/lose_life.wav", ASSET_FORMAT_WAV);
+    LoadAssetFileIntoMemory((char *)"../data/sfx/redirect_sound.wav", ASSET_FORMAT_WAV);
+    LoadAssetFileIntoMemory((char *)"../data/sfx/whistle.wav", ASSET_FORMAT_WAV);
+    LoadAssetFileIntoMemory((char *)"../data/sfx/comet_begin.wav", ASSET_FORMAT_WAV);
+    LoadAssetFileIntoMemory((char *)"../data/sfx/comet_loop.wav", ASSET_FORMAT_WAV);
+    LoadAssetFileIntoMemory((char *)"../data/sfx/old_sound.wav", ASSET_FORMAT_WAV);
+    LoadAssetFileIntoMemory((char *)"../data/sfx/powerup_sound.wav", ASSET_FORMAT_WAV);
+    LoadAssetFileIntoMemory((char *)"../data/sfx/powerdown_sound.wav", ASSET_FORMAT_WAV);
+    LoadAssetFileIntoMemory((char *)"../data/sfx/interface.wav", ASSET_FORMAT_WAV);
+    LoadAssetFileIntoMemory((char *)"../data/sfx/player_wall.wav", ASSET_FORMAT_WAV);
+    LoadAssetFileIntoMemory((char *)"../data/sfx/win_sound.wav", ASSET_FORMAT_WAV);
+    LoadAssetFileIntoMemory((char *)"../data/sfx/brick_1.wav", ASSET_FORMAT_WAV);
+    LoadAssetFileIntoMemory((char *)"../data/sfx/brick_2.wav", ASSET_FORMAT_WAV);
+    LoadAssetFileIntoMemory((char *)"../data/sfx/brick_3.wav", ASSET_FORMAT_WAV);
+    LoadAssetFileIntoMemory((char *)"../data/sfx/brick_4.wav", ASSET_FORMAT_WAV);
+    LoadAssetFileIntoMemory((char *)"../data/sfx/brick_5.wav", ASSET_FORMAT_WAV);
+    LoadAssetFileIntoMemory((char *)"../data/sfx/sine.wav", ASSET_FORMAT_WAV);
 
-    LoadAssetFileIntoMemory((char *)"../data/breakout_main.wav", ASSET_FORMAT_WAV); // TODO: Menu music
-    LoadAssetFileIntoMemory((char *)"../data/breakout_main.wav", ASSET_FORMAT_WAV); 
-
-    LoadAssetFileIntoMemory((char *)"../data/sfx/hit_1.wav", ASSET_FORMAT_WAV);
-    LoadAssetFileIntoMemory((char *)"../data/sfx/hit_2.wav", ASSET_FORMAT_WAV);
-    LoadAssetFileIntoMemory((char *)"../data/sfx/hit_3.wav", ASSET_FORMAT_WAV);
-    LoadAssetFileIntoMemory((char *)"../data/sfx/hit_4.wav", ASSET_FORMAT_WAV);
-    LoadAssetFileIntoMemory((char *)"../data/sfx/hit_5.wav", ASSET_FORMAT_WAV);
-    LoadAssetFileIntoMemory((char *)"../data/sfx/hit_6.wav", ASSET_FORMAT_WAV);
-    LoadAssetFileIntoMemory((char *)"../data/sfx/hit_7.wav", ASSET_FORMAT_WAV);
-    LoadAssetFileIntoMemory((char *)"../data/sfx/hit_8.wav", ASSET_FORMAT_WAV);
-    LoadAssetFileIntoMemory((char *)"../data/sfx/hit_9.wav", ASSET_FORMAT_WAV);
-    LoadAssetFileIntoMemory((char *)"../data/sfx/hit_10.wav", ASSET_FORMAT_WAV);
-    LoadAssetFileIntoMemory((char *)"../data/sfx/hit_11.wav", ASSET_FORMAT_WAV);
-    LoadAssetFileIntoMemory((char *)"../data/sfx/hit_12.wav", ASSET_FORMAT_WAV);
-    LoadAssetFileIntoMemory((char *)"../data/sfx/hit_13.wav", ASSET_FORMAT_WAV);
-    LoadAssetFileIntoMemory((char *)"../data/sfx/hit_14.wav", ASSET_FORMAT_WAV);
-    LoadAssetFileIntoMemory((char *)"../data/sfx/hit_15.wav", ASSET_FORMAT_WAV);
-    LoadAssetFileIntoMemory((char *)"../data/sfx/hit_16.wav", ASSET_FORMAT_WAV);
 
     WriteMemoryToFile(DataPackFilePath, GlobalMemoryBase, GlobalUsedMemorySize);
 }

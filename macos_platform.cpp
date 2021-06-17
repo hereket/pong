@@ -136,16 +136,17 @@ loaded_audio PlayingSounds[PLAYING_SOUNDS_COUNT];
 
 DEBUG_PLATFORM_PLAY_WAV(PlayWav)
 {
-
-    Track.IsPlaying = true;
-    Track.IsLooping = IsLooping;
+    Track->IsPlaying = true;
+    Track->IsLooping = IsLooping;
 
     bool32 AddedTrack = false;
 
     for(s32 i = 0; i < PLAYING_SOUNDS_COUNT; i++) {
-        loaded_audio OldTrack = PlayingSounds[i];
-        if(!OldTrack.IsPlaying) {
-            PlayingSounds[i] = Track;
+        loaded_audio *OldTrack = PlayingSounds + i;
+
+        if(Track && !OldTrack->IsPlaying) {
+            // PlayingSounds[i] = Track;
+            memcpy(OldTrack, Track, sizeof(loaded_audio));
             AddedTrack = true;
             break;
         }
@@ -180,7 +181,7 @@ void AudioCallback(void *UserData, u8 *Stream, int RequestedBytes)
 
     for(int i = 0; i < PLAYING_SOUNDS_COUNT; i++) {
         loaded_audio *Track = PlayingSounds + i;
-        if(Track->IsPlaying) {
+        if(Track && Track->IsPlaying) {
             s16 *SrcBuffer = (s16 *)Track->Data;
 
             for(int i = 0; i < Length; i++) {
@@ -203,6 +204,10 @@ void AudioCallback(void *UserData, u8 *Stream, int RequestedBytes)
         }
     }
 }
+
+
+
+
 
 global_variable real32 ListOfDt[60];
 global_variable int DtIndex;

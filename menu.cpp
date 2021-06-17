@@ -15,7 +15,7 @@ void
 DrawMenu(game_render_buffer *Buffer, game_memory GameMemory, game_input *Input, arena *Arena,
         v2 CameraP,
         paddle Paddle, game_levels_state *LevelStates,
-        game_state *GameState, assets *Assets) {
+        game_state *GameState) {
     
     DrawRect(Buffer, CameraP, Arena->P, Arena->Size, GlobalColorMenuBg);
     DrawRect(Buffer, CameraP, V2(0, -20), V2(180, 35), 0xff0000);
@@ -27,8 +27,11 @@ DrawMenu(game_render_buffer *Buffer, game_memory GameMemory, game_input *Input, 
     s32 SavedHighScore = LevelStates->Levels[CurrentLevel].HighScore;
 
     real32 S = 60.0f;
-    v2 LogoSize = {S, S / Assets->Images.LogoDark.XOverYProportion};
-    DrawBitmap(Buffer, &Assets->Images.LogoDark, CameraP, V2(0, -35), LogoSize);
+    bitmap LogoDark = GetBitmap(ASSET_B_LOGO_DARK);
+    // v2 LogoSize = {S, S / Assets->Images.LogoDark.XOverYProportion};
+    v2 LogoSize = {S, S / LogoDark.XOverYProportion};
+
+    DrawBitmap(Buffer, &LogoDark, CameraP, V2(0, -35), LogoSize);
 
     if(GameState->CurrentLevelScore > SavedHighScore) {
         LevelStates->Levels[CurrentLevel].HighScore = GameState->CurrentLevelScore;
@@ -63,8 +66,11 @@ DrawMenu(game_render_buffer *Buffer, game_memory GameMemory, game_input *Input, 
     GlobalLeftImageP = V2(-60, -21);
     GlobalRightImageP = V2(60, -21);
 
-    DrawBitmap(Buffer, &Assets->Images.LeftCurtain, CameraP, GlobalLeftImageP, V2(60, 60));
-    DrawBitmap(Buffer, &Assets->Images.RightCurtain, CameraP, GlobalRightImageP, V2(60, 60));
+    bitmap LeftCurtain = GetBitmap(ASSET_B_LEFT_CURTAIN);
+    bitmap RightCurtain = GetBitmap(ASSET_B_RIGHT_CURTAIN);
+
+    DrawBitmap(Buffer, &LeftCurtain, CameraP, GlobalLeftImageP, V2(60, 60));
+    DrawBitmap(Buffer, &RightCurtain, CameraP, GlobalRightImageP, V2(60, 60));
 
     if(IS_CHANGED(Input, BUTTON_MOUSE_LEFT)) { 
         GameState->CurrentLevel = (level)SelectedLevel;
@@ -74,7 +80,7 @@ DrawMenu(game_render_buffer *Buffer, game_memory GameMemory, game_input *Input, 
 
 
 void 
-DrawLevelTransition(game_render_buffer *Buffer, v2 CameraP, assets *Assets, real32 dt, 
+DrawLevelTransition(game_render_buffer *Buffer, v2 CameraP, real32 dt, 
         block *Blocks, s32 BlockCount, real32 TransitionTime, arena *Arena, arena_walls *Walls, u32 LevelColor)
 {
     real32 t = fmax(0, 1 - TransitionTime);
@@ -114,7 +120,9 @@ DrawLevelTransition(game_render_buffer *Buffer, v2 CameraP, assets *Assets, real
     GlobalLeftImageP.Y -= StepSize;
     GlobalRightImageP.Y -= StepSize;
 
+    bitmap LeftCurtain = GetBitmap(ASSET_B_LEFT_CURTAIN);
+    bitmap RightCurtain = GetBitmap(ASSET_B_RIGHT_CURTAIN);
 
-    DrawBitmap(Buffer, &Assets->Images.LeftCurtain, CameraP, GlobalLeftImageP, V2(60, 60));
-    DrawBitmap(Buffer, &Assets->Images.RightCurtain, CameraP, GlobalRightImageP, V2(60, 60));
+    DrawBitmap(Buffer, &LeftCurtain, CameraP, GlobalLeftImageP, V2(60, 60));
+    DrawBitmap(Buffer, &RightCurtain, CameraP, GlobalRightImageP, V2(60, 60));
 }

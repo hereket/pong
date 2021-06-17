@@ -11,6 +11,8 @@ typedef struct {
     u32 Position;
     bool32 IsLooping;
     bool32 IsPlaying;
+
+    s32 ChannelCount;
 } loaded_audio;
 
 
@@ -24,7 +26,7 @@ typedef DEBUG_PLATFORM_WRITE_ENTIRE_FILE(debug_platform_write_entire_file);
 #define DEBUG_PLATFORM_LOAD_WAV(name) loaded_audio name(u8 *Filename)
 typedef DEBUG_PLATFORM_LOAD_WAV(debug_platform_load_wav);
 
-#define DEBUG_PLATFORM_PLAY_WAV(name) void name(loaded_audio Track, bool32 IsLooping)
+#define DEBUG_PLATFORM_PLAY_WAV(name) void name(loaded_audio *Track, bool32 IsLooping)
 typedef DEBUG_PLATFORM_PLAY_WAV(debug_platform_play_wav);
 
 

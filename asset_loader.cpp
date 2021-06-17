@@ -5,11 +5,12 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 
+#include "ogg_importer.h"
+
+
 
 char *AssetFilePath = "../data/data.pack";
 
-read_file_result LoadAsset(asset_file *AssetFile, int AssetIndex, int AssetFormat);
-void LoadPngFromAssetPackage(asset_file *AssetFile, int asset_id, int asset_format);
 
 void 
 LoadAssetFile(game_memory *GameMemory, asset_file *AssetFile)
@@ -43,19 +44,11 @@ LoadAssetFile(game_memory *GameMemory, asset_file *AssetFile)
     
     Pointer = Pointer + (sizeof(s32) * AssetFile->AssetCount);
     AssetFile->FileDataBase = Pointer;
-
-    // s32 *P = (s32 *)AssetFile->AssetSizeTableBase;
-    // for(int i = 0; i < AssetFile->AssetCount; i++) {
-    //     printf("%d\n", *P++);
-    // }
-
-    // LoadAsset(AssetFile, ASSET_B_INVINCIBILITY, ASSET_FORMAT_PNG);
-    LoadPngFromAssetPackage(AssetFile, ASSET_B_INVINCIBILITY, ASSET_FORMAT_PNG);
 }
 
 
 read_file_result
-LoadAsset(asset_file *AssetFile, int AssetIndex, int AssetFormat) {
+LoadAsset(asset_file *AssetFile, int AssetIndex, int *AssetFormat) {
     s32 *P = (s32 *)AssetFile->AssetSizeTableBase;
     P = P + AssetIndex;
 
@@ -64,30 +57,41 @@ LoadAsset(asset_file *AssetFile, int AssetIndex, int AssetFormat) {
 
     if(NextFileOffset == 0) { NextFileOffset = AssetFile->Size; }
 
-    u32 FileSize = NextFileOffset - CurrentFileOffset;
+    u32 FileSize = NextFileOffset - (CurrentFileOffset + sizeof(s16)) ;
 
-    u8 *FileDataStart = AssetFile->Data + CurrentFileOffset;
+    s16 Format = *(s16 *)(AssetFile->Data + CurrentFileOffset);
+    *AssetFormat = (s32)Format;
+
+    u8 *FileDataStart = AssetFile->Data + CurrentFileOffset + sizeof(s16);
 
     read_file_result File = {};
     File.Size = FileSize;
     File.Memory = FileDataStart;
 
+    // printf("-- [%p] _%c_%c_%c_%c_|\n", 
+    //         FileDataStart,
+    //         *FileDataStart,
+    //         *(FileDataStart + 1),
+    //         *(FileDataStart + 2),
+    //         *(FileDataStart + 3)
+    //         );
+
     return File;
 }
 
 
-
 // BITMAP
 //--------------------------------------------------------------------------------
-bitmap BitmapList[ASSET__LAST_BITMAP];
+bitmap BitmapList[ASSET__LAST_BITMAP + 1];
 
 
 void
-LoadPngFromAssetPackage(asset_file *AssetFile, int asset_id, int asset_format) {
-    Assert(asset_id < ARRAY_COUNT(BitmapList));
+LoadPngFromAssetPackage(asset_file *AssetFile, int AssetId) {
+    Assert(AssetId < ARRAY_COUNT(BitmapList));
 
-    bitmap *Bitmap = BitmapList + asset_id;
-    read_file_result File = LoadAsset(AssetFile, asset_id, asset_format);
+    bitmap *Bitmap = BitmapList + AssetId;
+    int AssetFormat;
+    read_file_result File = LoadAsset(AssetFile, AssetId, &AssetFormat);
 
 
     s32 N = 0;
@@ -115,8 +119,8 @@ LoadPngFromAssetPackage(asset_file *AssetFile, int asset_id, int asset_format) {
 
 void
 LoadAllPngs(asset_file *AssetFile) {
-    for(int asset_id = 0; asset_id < ASSET__LAST_BITMAP; asset_id++) {
-        LoadPngFromAssetPackage(AssetFile, asset_id, ASSET_FORMAT_PNG);
+    for(int AssetId = 0; AssetId < ASSET__LAST_BITMAP; AssetId++) {
+        LoadPngFromAssetPackage(AssetFile, AssetId);
     }
 }
 
@@ -129,5 +133,69 @@ GetBitmap(int AssetId) {
 }
 
 
+
 // SOUND
 //--------------------------------------------------------------------------------
+
+loaded_audio SoundsList[ASSET__LAST_SOUND - ASSET__FIRST_SOUND + 1];
+
+internal loaded_audio
+load_ogg(char *file_name) {
+    loaded_audio Result = {0};
+
+    int SampleRate; Result.SampleCount = stb_vorbis_decode_filename(file_name, &Result.ChannelCount, &SampleRate, (short**)&Result.Data);
+    
+    Assert(Result.SampleCount);
+    Assert(Result.ChannelCount == 1 || Result.ChannelCount == 2);
+    Assert(SampleRate == 44100);
+    Assert(Result.Data);
+    
+    return Result;
+}
+
+void
+load_ogg_from_memory(read_file_result File, loaded_audio *LoadedAudio) {
+    int SampleRate;
+    LoadedAudio->SampleCount = stb_vorbis_decode_memory((uint8*)File.Memory, (int)File.Size, &LoadedAudio->ChannelCount, &SampleRate, (short **)&LoadedAudio->Data);
+    
+    assert(LoadedAudio->SampleCount);
+    assert(LoadedAudio->ChannelCount == 1 || LoadedAudio->ChannelCount == 2);
+    assert(SampleRate == 44100);
+    assert(LoadedAudio->Data);
+}
+
+
+void
+LoadSoundFromAssetPackage(asset_file *AssetFile, int AssetId) {
+    Assert(AssetId < ARRAY_COUNT(SoundsList));
+
+    loaded_audio *LoadedAudio = SoundsList + AssetId;
+
+    int AssetFormat;
+    read_file_result File = LoadAsset(AssetFile, AssetId, &AssetFormat);
+
+    if(AssetFormat == ASSET_FORMAT_OGG) {
+        load_ogg_from_memory(File, LoadedAudio);
+    } else if(AssetFormat == ASSET_FORMAT_WAV) {
+    }
+}
+
+
+
+void
+LoadAllSounds(asset_file *AssetFile) {
+    int StartId = 0; 
+    int EndId = ASSET__LAST_SOUND - ASSET__FIRST_SOUND; 
+
+    for(int AssetId = StartId; AssetId <= EndId; AssetId++) {
+        LoadSoundFromAssetPackage(AssetFile, AssetId);
+    }
+
+}
+
+loaded_audio *
+GetAudio(int AssetId) {
+    Assert(AssetId < ARRAY_COUNT(SoundsList));
+    loaded_audio *LoadedAudio = SoundsList + AssetId;
+    return LoadedAudio;
+}

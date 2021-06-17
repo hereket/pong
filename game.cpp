@@ -136,22 +136,22 @@ typedef struct {
 } game_levels_state;
 
 
-typedef struct {
-    bitmap PowerupInvincibility;
-    bitmap PowerupTripleShot;
-    bitmap PowerupComet;
+// typedef struct {
+//     bitmap PowerupInvincibility;
+//     bitmap PowerupTripleShot;
+//     bitmap PowerupComet;
+//
+//     bitmap LeftCurtain;
+//     bitmap RightCurtain;
+//
+//     bitmap ForceField;
+//     bitmap LogoDark;
+//     bitmap LogoLight;
+// } image_assets;
 
-    bitmap LeftCurtain;
-    bitmap RightCurtain;
-
-    bitmap ForceField;
-    bitmap LogoDark;
-    bitmap LogoLight;
-} image_assets;
-
-typedef struct {
-    image_assets Images;
-} assets;
+// typedef struct {
+//     image_assets Images;
+// } assets;
 
 
 typedef struct {
@@ -246,15 +246,15 @@ global_variable s32 GlobalBlockIndex;
 global_variable particle GlobalParticles[1024];
 global_variable s32 GlobalNextParticle;
 
-global_variable assets GlobalAssets;
+// global_variable assets GlobalAssets;
 
 
 
-global_variable loaded_audio game_main_bg_sound;
-global_variable loaded_audio ball_hit_1;
-global_variable loaded_audio sound1;
-global_variable loaded_audio sound2;
-global_variable loaded_audio sound3;
+// global_variable loaded_audio game_main_bg_sound;
+// global_variable loaded_audio ball_hit_1;
+// global_variable loaded_audio sound1;
+// global_variable loaded_audio sound2;
+// global_variable loaded_audio sound3;
 
 global_variable game_mode GlobalGameMode;
 global_variable real32 GlobalLevelTransitionTime;
@@ -552,10 +552,13 @@ SimulateLevel(game_render_buffer *Buffer, v2 CameraP)
 
         v2 PowerupSize = {5, 5};
 
+        bitmap PowerupInvincibility = GetBitmap(ASSET_B_INVINCIBILITY);
+        bitmap PowerupTripleShot = GetBitmap(ASSET_B_TRIPLESHOT);
+
         if(Power->Type == POWER_INVINCIBILITY) {
-            DrawBitmap(Buffer, &GlobalAssets.Images.PowerupInvincibility, CameraP, Power->P, PowerupSize);
+            DrawBitmap(Buffer, &PowerupInvincibility, CameraP, Power->P, PowerupSize);
         } else if(Power->Type == POWER_TRIPLE_SHOT) {
-            DrawBitmap(Buffer, &GlobalAssets.Images.PowerupTripleShot, CameraP, Power->P, PowerupSize);
+            DrawBitmap(Buffer, &PowerupTripleShot, CameraP, Power->P, PowerupSize);
         } else if(Power->Type < POWER_LIMIT_BETWEEN_BAD_AND_GOOD) {
             DrawRect(Buffer, CameraP, Power->P, V2(2, 2), 0xf05454);
         } else {
@@ -815,6 +818,8 @@ SimulateGame(game_memory GameMemory, game_render_buffer *Buffer, game_input *Inp
         LoadAssetFile(&GameMemory, &GlobalAssetFile);
 
         LoadAllPngs(&GlobalAssetFile);
+        LoadAllSounds(&GlobalAssetFile);
+
 
         // LoadPng(GameMemory, "../data/invincibility.png", &GlobalAssets.Images.PowerupInvincibility);
         // LoadPng(GameMemory, "../data/triple_shot.png", &GlobalAssets.Images.PowerupTripleShot);
@@ -828,18 +833,17 @@ SimulateGame(game_memory GameMemory, game_render_buffer *Buffer, game_input *Inp
         // LoadPng(GameMemory, "../data/log_light.png", &GlobalAssets.Images.LogoLight);
 
 
-        game_main_bg_sound = GameMemory.DEBUGPlatformLoadWav((u8 *)"../data/breakout_main.wav");
-        ball_hit_1 = GameMemory.DEBUGPlatformLoadWav((u8 *)"../data/sfx/hit_5.wav");
-        sound1 = GameMemory.DEBUGPlatformLoadWav((u8 *)"../data/test.wav");
-        sound2 = GameMemory.DEBUGPlatformLoadWav((u8 *)"../data/sine.wav");
-        sound3 = GameMemory.DEBUGPlatformLoadWav((u8 *)"../data/collision3.wav");
+        // game_main_bg_sound = GameMemory.DEBUGPlatformLoadWav((u8 *)"../data/breakout_main.wav");
+        // ball_hit_1 = GameMemory.DEBUGPlatformLoadWav((u8 *)"../data/sfx/hit_5.wav");
+        // sound1 = GameMemory.DEBUGPlatformLoadWav((u8 *)"../data/test.wav");
+        // sound2 = GameMemory.DEBUGPlatformLoadWav((u8 *)"../data/sine.wav");
+        // sound3 = GameMemory.DEBUGPlatformLoadWav((u8 *)"../data/collision3.wav");
 
-        GameMemory.DEBUGPlatformPlayWav(game_main_bg_sound, false);
+        // GameMemory.DEBUGPlatformPlayWav(game_main_bg_sound, false);
+        GameMemory.DEBUGPlatformPlayWav(GetAudio(ASSET_S_MAIN_MUSIC), false);
 
         LoadGameSaveFile(GameMemory);
 
-
-        exit(0);
 
         GlobalCameraP = V2(0, 0);
         GlobalCameraDP = V2(0, 0);
@@ -938,7 +942,7 @@ SimulateGame(game_memory GameMemory, game_render_buffer *Buffer, game_input *Inp
                 // ArenaWalls.Top.dP = V2(0, -WallWiggleAmount);
             }
 
-            DrawLevelTransition(Buffer, GlobalCameraP, &GlobalAssets, dt, BlockList, BlockTotalCount, GlobalLevelTransitionTime, &Arena, &ArenaWalls, ColorArenaBg);
+            DrawLevelTransition(Buffer, GlobalCameraP, dt, BlockList, BlockTotalCount, GlobalLevelTransitionTime, &Arena, &ArenaWalls, ColorArenaBg);
         } else {
             TransitionStarted = false;
             for(ball *Ball = Balls; Ball != Balls + ARRAY_COUNT(Balls); Ball++)
@@ -994,7 +998,7 @@ SimulateGame(game_memory GameMemory, game_render_buffer *Buffer, game_input *Inp
                                 GlobalGameState.CurrentLevelScore += 1;
 
                                 // GameMemory.DEBUGPlatformPlayWav(sound3, false);
-                                GameMemory.DEBUGPlatformPlayWav(ball_hit_1, false);
+                                GameMemory.DEBUGPlatformPlayWav(GetAudio(ASSET_S_HIT_1), false);
 
                                 ProcessBallOnDpYDown(Ball);
 
@@ -1135,10 +1139,11 @@ SimulateGame(game_memory GameMemory, game_render_buffer *Buffer, game_input *Inp
                 }
             }
 
+            bitmap ForceField = GetBitmap(ASSET_B_FORCE_FIELD);
 
             if(InvincibilityTime > 0) {
                 real32 BitmapHeight = 20;
-                DrawBitmap(Buffer, &GlobalAssets.Images.ForceField, 
+                DrawBitmap(Buffer, &ForceField, 
                         GlobalCameraP, 
                         V2(0, Arena.Margin.Bottom - BitmapHeight/2 + 2), 
                         V2(Arena.Size.X, BitmapHeight));
@@ -1201,7 +1206,7 @@ SimulateGame(game_memory GameMemory, game_render_buffer *Buffer, game_input *Inp
             DrawNumber(Buffer, GlobalGameState.CurrentLevelScore, GlobalCameraP, V2(-Arena.Size.X/2 + 20, -Arena.Size.Y/2 + 1.5), 1.5, 0xffffffff);
         }
     } else if (GlobalGameMode == GAME_MODE_MENU) {
-        DrawMenu(Buffer, GameMemory, Input, &Arena, GlobalCameraP, Paddle, &GlobalGameLevelState, &GlobalGameState, &GlobalAssets);
+        DrawMenu(Buffer, GameMemory, Input, &Arena, GlobalCameraP, Paddle, &GlobalGameLevelState, &GlobalGameState);
     }
 
     
@@ -1268,23 +1273,28 @@ SimulateGame(game_memory GameMemory, game_render_buffer *Buffer, game_input *Inp
 
         static real32 b = 1234.0f;
 
+        bitmap PowerupInvincibility = GetBitmap(ASSET_B_INVINCIBILITY);
+        bitmap PowerupTripleShot = GetBitmap(ASSET_B_TRIPLESHOT);
+        bitmap PowerupComet = GetBitmap(ASSET_B_COMET);
+
+
         if(InvincibilityTime > 0) {
             // Invincibility
-            DrawBitmap(Buffer, &GlobalAssets.Images.PowerupInvincibility, GlobalCameraP, ImageP, V2(5, 5));
+            DrawBitmap(Buffer, &PowerupInvincibility, GlobalCameraP, ImageP, V2(5, 5));
             DrawNumberReal(Buffer, InvincibilityTime, GlobalCameraP, NumberP, 1.5, 0xffffffff);
         }
 
         if(GlobalNumberOfTripleShots > 0) {
             NumberP.Y -= ImageSize.Y + Offset;
             ImageP.Y -= ImageSize.Y + Offset;
-            DrawBitmap(Buffer, &GlobalAssets.Images.PowerupTripleShot, GlobalCameraP, ImageP, V2(5, 5));
+            DrawBitmap(Buffer, &PowerupTripleShot, GlobalCameraP, ImageP, V2(5, 5));
             DrawNumber(Buffer, GlobalNumberOfTripleShots, GlobalCameraP, NumberP, 1.5, 0xffffffff);
         }
 
         if(CometTime > 0) {
             NumberP.Y -= ImageSize.Y + Offset;
             ImageP.Y -= ImageSize.Y + Offset;
-            DrawBitmap(Buffer, &GlobalAssets.Images.PowerupComet, GlobalCameraP, ImageP, V2(5, 5));
+            DrawBitmap(Buffer, &PowerupComet, GlobalCameraP, ImageP, V2(5, 5));
             DrawNumberReal(Buffer, CometTime, GlobalCameraP, NumberP, 1.5, 0xffffffff);
         }
     }
