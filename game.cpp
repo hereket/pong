@@ -1,8 +1,6 @@
 #include "collision.cpp"
 
 
-
-
 #define BALL_ACTIVE 0x1
 #define BALL_DESTROYED_ON_DP_Y_DOWN 0x2
 
@@ -176,6 +174,8 @@ global_variable v2 GlobalCameraP;
 global_variable v2 GlobalCameraDP;
 
 global_variable asset_file GlobalAssetFile;
+
+global_variable real32 GlobalMouseSensitivity = 1.0;
 
 
 
@@ -804,6 +804,17 @@ UpdateWallPosition(wall *Wall, real32 dt) {
     Wall->VisualP = Wall->VisualP + (Wall->dP * Time) + (Ddp * Time * Time * 0.5f);
 }
 
+void SetMouseSensitivity(real32 Value) {
+    GlobalMouseSensitivity = Value;
+}
+
+void SetWindowedMode(game_memory GameMemory, bool32 Value) {
+    GameMemory.DEBUGPlatformSetFullScreen(Value);
+}
+
+void SetVolume(real32 Value) {
+}
+
 void 
 SimulateGame(game_memory GameMemory, game_render_buffer *Buffer, game_input *Input, real32 dt)
 {
@@ -819,6 +830,10 @@ SimulateGame(game_memory GameMemory, game_render_buffer *Buffer, game_input *Inp
 
         LoadAllPngs(&GlobalAssetFile);
         LoadAllSounds(&GlobalAssetFile);
+
+        LoadAllConfig(GameMemory);
+
+        // exit(0);
 
 
         // LoadPng(GameMemory, "../data/invincibility.png", &GlobalAssets.Images.PowerupInvincibility);
@@ -839,8 +854,8 @@ SimulateGame(game_memory GameMemory, game_render_buffer *Buffer, game_input *Inp
         // sound2 = GameMemory.DEBUGPlatformLoadWav((u8 *)"../data/sine.wav");
         // sound3 = GameMemory.DEBUGPlatformLoadWav((u8 *)"../data/collision3.wav");
 
-        // GameMemory.DEBUGPlatformPlayWav(game_main_bg_sound, false);
-        GameMemory.DEBUGPlatformPlayWav(GetAudio(ASSET_S_MAIN_MUSIC), false);
+        // GameMemory.DEBUPlatformPlaySound(game_main_bg_sound, false);
+        GameMemory.DEBUPlatformPlaySound(GetAudio(ASSET_S_MAIN_MUSIC), 0.1, false);
 
         LoadGameSaveFile(GameMemory);
 
@@ -913,8 +928,8 @@ SimulateGame(game_memory GameMemory, game_render_buffer *Buffer, game_input *Inp
     real32 PaddleSpeedMultiplier = 0.17;
 
     // PaddleDesiredP = PixelToWorldCoord(Buffer, Input->MouseP);
-    if(InvertedControlsTime > 0) { PaddleDesiredP = Paddle.P - (Input->MouseDp * PaddleSpeedMultiplier); }
-    else                         { PaddleDesiredP = Paddle.P + (Input->MouseDp * PaddleSpeedMultiplier); }
+    if(InvertedControlsTime > 0) { PaddleDesiredP = Paddle.P - (Input->MouseDp * PaddleSpeedMultiplier * GlobalMouseSensitivity); }
+    else                         { PaddleDesiredP = Paddle.P + (Input->MouseDp * PaddleSpeedMultiplier * GlobalMouseSensitivity); }
     PaddleDesiredP.Y = Paddle.P.Y;
 
     Paddle.dP.X = PaddleDesiredP.X - Paddle.P.X;
@@ -997,8 +1012,8 @@ SimulateGame(game_memory GameMemory, game_render_buffer *Buffer, game_input *Inp
 
                                 GlobalGameState.CurrentLevelScore += 1;
 
-                                // GameMemory.DEBUGPlatformPlayWav(sound3, false);
-                                GameMemory.DEBUGPlatformPlayWav(GetAudio(ASSET_S_HIT_1), false);
+                                // GameMemory.DEBUPlatformPlaySound(sound3, false);
+                                GameMemory.DEBUPlatformPlaySound(GetAudio(ASSET_S_HIT_1), 0.7, false);
 
                                 ProcessBallOnDpYDown(Ball);
 

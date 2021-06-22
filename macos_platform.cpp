@@ -16,6 +16,7 @@
 #include "profiler.cpp"
 
 #include "platform.h"
+#include "config_loader.cpp"
 
 #include "game.cpp"
 
@@ -134,12 +135,14 @@ int SAMPLE_RATE = 44100;
 #define PLAYING_SOUNDS_COUNT 16
 loaded_audio PlayingSounds[PLAYING_SOUNDS_COUNT];
 
-DEBUG_PLATFORM_PLAY_WAV(PlayWav)
+DEBUG_PLATFORM_PLAY_SOUND(PlaySound)
 {
     Track->IsPlaying = true;
     Track->IsLooping = IsLooping;
 
     bool32 AddedTrack = false;
+
+    Track->Volume = Volume;
 
     for(s32 i = 0; i < PLAYING_SOUNDS_COUNT; i++) {
         loaded_audio *OldTrack = PlayingSounds + i;
@@ -158,12 +161,27 @@ DEBUG_PLATFORM_PLAY_WAV(PlayWav)
 
 }
 
+global_variable SDL_Window *GlobalMainWindow;
+global_variable bool32 GlobalFullScreen;
+
+DEBUG_PLATFORM_SET_FULLSCREEN(SetFullScreen) {
+    GlobalFullScreen = IsFullScreen;
+    if(IsFullScreen == 0) {
+        SDL_SetWindowFullscreen(GlobalMainWindow, 0);
+    } else {
+        SDL_SetWindowFullscreen(GlobalMainWindow, SDL_WINDOW_FULLSCREEN);
+    }
+
+}
+
+
 DEBUG_PLATFORM_LOAD_WAV(LoadWav)
 {
     SDL_AudioSpec AudioSpec;
     loaded_audio Track = {};
     SDL_LoadWAV((char *)Filename, &AudioSpec, &Track.Data, &Track.Size);
     Track.SampleCount = Track.Size / 2;
+    Track.Volume = 1.0f;
 
     return Track;
 }
@@ -195,10 +213,15 @@ void AudioCallback(void *UserData, u8 *Stream, int RequestedBytes)
                     }
                 }
 
-                s32 Val = AMPLITUDE; 
-                s32 TestValue = DestBuffer[i] + SrcBuffer[SrcIndex];
-                s32 EndValue = Clamp(-Val, TestValue, Val);
-                DestBuffer[i] = EndValue;
+                s32 SrcValue = SrcBuffer[SrcIndex];
+                s32 Value = (s32)((real32)SrcValue * (real32)Track->Volume);
+                s32 TestValue = DestBuffer[i] + Value;
+                s32 ClampedValue = Clamp(-AMPLITUDE, TestValue, AMPLITUDE);
+
+                // printf("SrcValue: %d, Value: %d, TestValue: %d, ClampedValue: %d, %f\n", SrcValue, Value, TestValue, ClampedValue, Track->Volume);
+                // printf("SrcBuffer: %d, Value: %d, TestValue: %d, ClampedValue: %d\n", SrcBuffer[SrcIndex], Value, TestValue, ClampedValue);
+
+                DestBuffer[i] = ClampedValue;
             }
 
         }
@@ -246,10 +269,9 @@ int main()
     GameMemory.DEBUGPlatformWriteEntireFile = WriteEntireFile;
 
     GameMemory.DEBUGPlatformLoadWav = LoadWav;
-    GameMemory.DEBUGPlatformPlayWav = PlayWav;
+    GameMemory.DEBUPlatformPlaySound = PlaySound;
+    GameMemory.DEBUGPlatformSetFullScreen = SetFullScreen;
 
-    /* s32 WindowWidth = 640; */
-    /* s32 WindowHeight = 480; */
     s32 WindowWidth = 960;
     s32 WindowHeight = WindowWidth / 1.77;
     s32 WindowCenterX = WindowWidth / 2;
@@ -259,6 +281,8 @@ int main()
             SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
             WindowWidth, WindowHeight, 
             SDL_WINDOW_RESIZABLE); 
+
+    GlobalMainWindow = Window;
 
     if(!Window) 
     {
@@ -370,6 +394,16 @@ int main()
                     PROCESS_BUTTON(SDLK_DOWN, BUTTON_DOWN);
                     PROCESS_BUTTON(SDLK_ESCAPE, BUTTON_ACTION);
                     // PROCESS_BUTTON(SDLK_l, BUTTON_FAST);
+                    PROCESS_BUTTON(SDLK_LEFT, BUTTON_LEFT);
+
+
+                    if(IsDown && !WasDown) {
+                        if(event.key.keysym.sym == SDLK_f) {
+                            GlobalFullScreen = !GlobalFullScreen;
+                            SetFullScreen(GlobalFullScreen);
+                        }
+                    }
+
                 } break;
             }
         }
@@ -402,7 +436,8 @@ int main()
 
 
         if(GlobalWindowIsFocused) {
-            SDL_WarpMouseInWindow(Window, WindowCenterX, WindowCenterY);
+            // SDL_WarpMouseInWindow(Window, WindowCenterX, WindowCenterY);
+            SDL_WarpMouseInWindow(Window, GlobalRenderBuffer.Width / 2, GlobalRenderBuffer.Height/2);
         }
 
         real32 testDt = DEBUGPlatformGetTimeElapsedNanoseconds(LastTime) / BILLION;

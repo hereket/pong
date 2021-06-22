@@ -143,7 +143,10 @@ internal loaded_audio
 load_ogg(char *file_name) {
     loaded_audio Result = {0};
 
-    int SampleRate; Result.SampleCount = stb_vorbis_decode_filename(file_name, &Result.ChannelCount, &SampleRate, (short**)&Result.Data);
+    int SampleRate;
+    Result.SampleCount = stb_vorbis_decode_filename(file_name, &Result.ChannelCount, &SampleRate, (short**)&Result.Data);
+
+    Result.Volume = 1.0f;
     
     Assert(Result.SampleCount);
     Assert(Result.ChannelCount == 1 || Result.ChannelCount == 2);
@@ -157,6 +160,8 @@ void
 load_ogg_from_memory(read_file_result File, loaded_audio *LoadedAudio) {
     int SampleRate;
     LoadedAudio->SampleCount = stb_vorbis_decode_memory((uint8*)File.Memory, (int)File.Size, &LoadedAudio->ChannelCount, &SampleRate, (short **)&LoadedAudio->Data);
+
+    LoadedAudio->Volume = 1.0f;
     
     assert(LoadedAudio->SampleCount);
     assert(LoadedAudio->ChannelCount == 1 || LoadedAudio->ChannelCount == 2);
