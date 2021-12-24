@@ -1,0 +1,4 @@
+mouse_sensitivity = 7.0
+full_screen = false
+volume = 1.0
+
