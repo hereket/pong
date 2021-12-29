@@ -3,6 +3,8 @@ CFLAGS="${CFLAGS} -DPROFILING=1"
 
 IGNORES="-Wno-c++11-compat-deprecated-writable-strings"
 
+mkdir -p ../build
+
 pushd ../build
 
 TEMP="-lstdc++"
