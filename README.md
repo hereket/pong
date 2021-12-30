@@ -2,6 +2,7 @@
 This is a pong game currently working only in macOS. It is software-rendered
 from scratch. The reason for this is project is to practice 'raw' programming for
 macOS.
+![][/_images/game1.png]
 
 
 ## External code
@@ -41,7 +42,7 @@ brew install SDL2
 
 ## Credit
 This project is heavily based on Dan Zaidan's ["Making a game in C from
-scratch"](https://www.youtube.com/playlist?list=PL7Ej6SUky1357r-Lqf_nogZWHssXP-hvH)]
+scratch"](https://www.youtube.com/playlist?list=PL7Ej6SUky1357r-Lqf_nogZWHssXP-hvH)
 youtube videos. He has done a great job, go check them out. Unfortunately, this
 project is not one-to-one mapping to his code for macOS. This is my
 interpretation of his game design ideas and if you want to follow his videos but
