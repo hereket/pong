@@ -2,7 +2,7 @@
 This is a pong game currently working only in macOS. It is software-rendered
 from scratch. The reason for this is project is to practice 'raw' programming for
 macOS.
-![][/_images/game1.png]
+![sss](/_images/game1.png)
 
 
 ## External code
